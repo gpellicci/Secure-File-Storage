@@ -1,30 +1,6 @@
-// commento
-
-#include <signal.h>
-#include <iostream>
-#include <time.h>
-#include <sys/mman.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>    //strlen
-#include <sys/socket.h>
-#include <arpa/inet.h> //inet_addr
-#include <unistd.h>    //write
-#include <string>
-
 #include "server.h"
 #include "cryptography.h"
 #include "communication.h"
-
-//constant definition
-#define cmdMaxLen 10
-#define filenameMaxLen 255
-
-#define serverIp "127.0.0.1"
-#define serverPort 9090
-//-----------------------------------
 
 using namespace std; 
 

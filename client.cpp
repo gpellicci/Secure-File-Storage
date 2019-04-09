@@ -1,35 +1,11 @@
-//best commento
-#include <limits>
-#include <iostream>
-#include <signal.h>
-#include <time.h>
-#include <errno.h>
-#include <sys/mman.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>    //strlen
-#include <sys/socket.h>
-#include <arpa/inet.h> //inet_addr
-#include <unistd.h>    //write
-#include <string>
-
 #include "client.h"
 #include "cryptography.h"
 #include "communication.h"
 #include "checkInputs.h"
 
-//constant definition
-#define cmdMaxLen 10
-#define filenameMaxLen 255
-
-#define serverIp "127.0.0.1"
-#define serverPort 9090
-//-----------------------------------
 
 using namespace std;
 
-//------------------------------------------------
 
 int main(){
 
@@ -59,8 +35,6 @@ int main(){
                 return 1;
         }
 
-
-	// TODO const parametr in client.h??
         //establish connection to the server
         int client_sock = connectToServer(serverIp, serverPort);
 

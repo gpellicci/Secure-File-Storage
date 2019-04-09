@@ -4,27 +4,21 @@ unsigned int getFileSize( std::string path ){
 	if(pFile == NULL)
 		return 0;
 	// set the file pointer to end of file
-	fseek( pFile, 0, SEEK_END );
-
-	/* 
-
-	TODO 
+	 
 	int ret = fseek( pFile, 0, SEEK_END );
-	if(ret < 0)
-		ERRORE!
+	if(ret < 0){
 		perror();
-	*/
+		return 0;
+	}
 
 	// get the file size
 	unsigned int size = ftell( pFile );
-	/* 
-
-	TODO 
+	 
 	ret = ftell( pFile );
-	if(ret < 0)
-		ERRORE!
+	if(ret < 0){
 		perror();
-	*/
+		return 0;
+	}
 
 	// return the file pointer to begin of file if you want to read it
 	// rewind( pFile );

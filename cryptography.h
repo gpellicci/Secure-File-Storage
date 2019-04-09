@@ -6,7 +6,6 @@
 
 void handleErrors(void)
 {
-	// perror();
   printf("Error crypto\n");
   exit(1);
 }
@@ -100,26 +99,22 @@ void hmac_SHA256(unsigned char* msg, unsigned int len, unsigned char* key_hmac, 
   const EVP_MD* md = EVP_sha256();
   int hash_size; //size of the digest
   hash_size = EVP_MD_size(md);
+
   //create a buffer for our digest
   hash_buf = (unsigned char*)malloc(hash_size); 
-
-	/*
-		TODO
-		if(!hash_buf){
-			perror();
-			return;
-		}
-	*/
+	if(!hash_buf){
+  		perror();
+  		return;
+	}
+	
   //create message digest context
   HMAC_CTX* mdctx;
   mdctx = HMAC_CTX_new();
-	/*
-		TODO
-		if(!mdctx){
-			perror();
-			return;
-		}
-	*/
+	if(!mdctx){
+  		perror();
+  		return;
+	}
+	
   //Init,Update,Finalise digest 
   // TODO??
   HMAC_Init_ex(mdctx, key_hmac, key_hmac_size, md, NULL);

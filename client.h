@@ -1,4 +1,27 @@
+#include <limits>
+#include <iostream>
+#include <signal.h>
+#include <time.h>
+#include <errno.h>
+#include <sys/mman.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>    //strlen
+#include <sys/socket.h>
+#include <arpa/inet.h> //inet_addr
+#include <unistd.h>    //write
+#include <string>
+
+//constant definition
+#define cmdMaxLen 10
+#define filenameMaxLen 255
+#define serverIp "127.0.0.1"
+#define serverPort 9090
+
+
 int connectToServer(const char* ip, unsigned int port){
+    
     struct sockaddr_in serverAddr;
 
     //Prepare the sockaddr_in structure
