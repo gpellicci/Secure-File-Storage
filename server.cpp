@@ -12,95 +12,43 @@
 #include <unistd.h>    //write
 #include <string>
 
+#include "server.h"
 #include "cryptography.h"
 #include "communication.h"
 
-#define MAX_CONNECTION 30
+//constant definition
 #define cmdMaxLen 10
 #define filenameMaxLen 255
 
+#define serverIp "127.0.0.1"
+#define serverPort 9090
+//-----------------------------------
+
 using namespace std; 
 
-/*
-	TODO funzione a parte che prepara il socket, nel caso aggiungere a un file server.h
-
-bool prepare_socket(struct sockaddr_in& serverAddr, int& serv_sock){
-
-    //Prepare the sockaddr_in structure
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons( server_port );
-
-    server_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if(server_sock == -1){
-        perror("Could not create socket. Error");
-        return false;
-    }
-    //Bind
-    if( bind(server_sock,(struct sockaddr *)&serverAddr , sizeof(serverAddr)) < 0){
-        //print the error message
-        perror("Bind failed. Error");
-        return false;
-    }
-
-    int listen_ret = listen(server_sock, MAX_CONNECTION); 
-    if(listen_ret == -1){
-        perror("Could not listen. Error");
-        return false;
-    }   
-    printf("All good, listening...\n");
-	return true;
-}
-
-*/
-
 int main(){
-    //std::string s = "prova.txt";
-    //printf("\nSize is %u\n", getFileSize(s));
-
-    struct sockaddr_in serverAddr, client;
-    int server_port = 9090;
-    int c = sizeof(struct sockaddr_in);
-/*
-	TODO
-    sockaddr_in serverAddr;
+    struct sockaddr_in serverAddr;
 	int server_sock;
-	bool r = prepare_socket(serverAddr, server_sock);
-	if(!r){
+s
+	bool result = prepareSocket(serverAddr, server_sock, serverIp, serverPort);
+	if(!result){
 		cout << "ERRORE!\n";
         return 1;
 	}
-*/
-
-    //Prepare the sockaddr_in structure
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons( server_port );
-
-    int server_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if(server_sock == -1){
-        perror("Could not create socket. Error");
-        return 1;
-    }
-    //Bind
-    if( bind(server_sock,(struct sockaddr *)&serverAddr , sizeof(serverAddr)) < 0){
-        //print the error message
-        perror("Bind failed. Error");
-        return 1;
-    }
-
-    listen(server_sock, MAX_CONNECTION);    
-    printf("All good, listening...\n");
 
 
     while(1){
-
+        //accept client connection
+        struct sockaddr_in client;
+        int c = sizeof(struct sockaddr_in);
         int tcp_client = accept(server_sock, (struct sockaddr *)&client, (socklen_t*)&c);
             if (tcp_client < 0){
-                cout << "Accept failed";
+                cout << "Accept failed\n";
                 return 1;
             }
-        printf("Incoming connection from %s:%d -> Accepted\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+        printf("Accepted connection from %s:%d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+
+
 
         char* buf;
 

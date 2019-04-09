@@ -13,17 +13,22 @@
 #include <unistd.h>    //write
 #include <string>
 
+#include "client.h"
 #include "cryptography.h"
 #include "communication.h"
 #include "checkInputs.h"
 
-#define MAX_CONNECTION 30
+//constant definition
 #define cmdMaxLen 10
 #define filenameMaxLen 255
 
-int connectToServer(const char* ip, unsigned int port);
+#define serverIp "127.0.0.1"
+#define serverPort 9090
+//-----------------------------------
 
 using namespace std;
+
+//------------------------------------------------
 
 int main(){
 
@@ -35,14 +40,9 @@ int main(){
         //get op code 
         string opcode;
         cin >> opcode;        
-        if(checkStrSize(opcode, cmdMaxLen) == false){
-            cout << "too large cmd\n";
-            return 1;
-        }
-        if(checkAllowedChars(opcode.c_str()) == false){
-            cout << "Characters not allowed\n";
-            return 1;        
-        }
+        if(!checkInputs(opcode, cmdMaxLen))
+            return 1
+        
 
         //exit program condition
         if(strcmp(opcode.c_str(), "exit") == 0 || strcmp(opcode.c_str(), "quit") == 0 ){
@@ -53,23 +53,15 @@ int main(){
         string fname;
         if(strcmp(opcode.c_str(), "up") == 0 || strcmp(opcode.c_str(), "down") == 0 ){
             cout << "Insert filename: ";
-            cin >> fname;              
-            if(checkStrSize(fname, filenameMaxLen) == false){
-                cout << "too large filename";
+            cin >> fname;     
+            if(!checkInputs(fname, filenameMaxLen))
                 return 1;
-            }  
-            if(checkAllowedChars(fname.c_str()) == false){
-                cout << "Characters not allowed\n";
-                return 1;        
-            }
         }
 
 
 	// TODO const parametr in client.h??
         //establish connection to the server
-        string serverIp = "127.0.0.1";
-        unsigned int serverPort = 9090;
-        int client_sock = connectToServer(serverIp.c_str(), serverPort);
+        int client_sock = connectToServer(serverIp, serverPort);
 
         //send the op code
         int len = sendCryptoString(client_sock, opcode.c_str());
@@ -130,29 +122,4 @@ int main(){
     }
 
     return 0;
-}
-
-int connectToServer(const char* ip, unsigned int port){
-    struct sockaddr_in serverAddr;
-
-    //Prepare the sockaddr_in structure
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = inet_addr(ip);
-    serverAddr.sin_port = htons(port);
-
-    int client_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if(client_sock == -1){
-        cout << "Could not create socket. Error";
-        return 1;
-    }
-
-    //Connect to remote server
-    if (connect(client_sock , (struct sockaddr *)&serverAddr , sizeof(serverAddr)) < 0)
-    {
-        cout << "Connect failed. Error";
-        return 1;
-    }
-
-    cout << "Connection to the server " << inet_ntoa(serverAddr.sin_addr) << ":" << port << " successful.\n";
-    return client_sock;
 }
