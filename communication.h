@@ -11,8 +11,8 @@ bool sendCryptoSize(int sock, uint32_t len){
     uint32_t lmsg;
 
     
-    printf("\033[1;32m[%luBytes]PlainSIZE is: \033[31;47m%u\033[0m\n", sizeof(uint32_t), len);
-    cout << "\033[0m";
+    printf("\033[1;32m[%luBytes]PlainSIZE is: \033[31;47m%u\033[0m\n\033[0m", sizeof(uint32_t), len);
+
     lmsg = htonl(len);
 
     unsigned char* plaintext = (unsigned char*)&lmsg;
@@ -28,8 +28,8 @@ bool sendCryptoSize(int sock, uint32_t len){
     unsigned int ciphertext_len = encrypt(plaintext, plaintext_len, key, NULL, ciphertext);
 
     // Redirect our ciphertext to the terminal
-    printf("[%uBytes]Ciphertext is:\n", ciphertext_len);
-    BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
+//printf("[%uBytes]Ciphertext is:\n", ciphertext_len);
+//BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
 
     //actually send:
     int ret = send(sock, ciphertext, ciphertext_len, 0);
@@ -51,24 +51,24 @@ uint32_t recvCryptoSize(int sock){
     unsigned char* ciphertext = (unsigned char*)malloc(ciphertext_len); 
 	if(!ciphertext){
 		perror("ERRORE:\n");
-		return -1;
+		return 0;
 	} 
 
     unsigned char* decryptedtext = (unsigned char*)malloc(sizeof(uint32_t)+16);
 	if(!decryptedtext){
 		perror("ERRORE:\n");
-		return -1;
+		return 0;
 	}
 
 
     //receive the ciphertext
     int ret = recv(sock, ciphertext, ciphertext_len, 0);    
     if(ret < 0)
-        return -1;
+        return 0;
 
     // Redirect our ciphertext to the terminal
-    printf("[%uBytes]CipherSIZE is:\n", ciphertext_len);
-    BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
+//printf("[%uBytes]CipherSIZE is:\n", ciphertext_len);
+//BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
 
     //DECRYPTION
     int decryptedtext_len = decrypt(ciphertext, ciphertext_len, key, NULL, decryptedtext);
@@ -113,8 +113,9 @@ int sendCryptoString(int sock, const char* buf){
     
     printf("\033[1;33m[%uBytes]Plain: \033[31;47m%s\033[0m\n", plaintext_len, (char*)plaintext);   
 
-    printf("[%uBytes]Ciphertext is:\n", ciphertext_len);
-    BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
+//printf("[%uBytes]Ciphertext is:\n", ciphertext_len);
+//  _dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
+  
     send(sock, ciphertext, ciphertext_len, 0);
     //sendl(sock, (const char*)ciphertext);
     printf("\tCiphertext sent.\n");
@@ -147,8 +148,8 @@ int recvCryptoString(int sock, char*& buf){
 
 
     // Redirect our ciphertext to the terminal
-    printf("[%uBytes]Ciphertext is:\n", ciphertext_len);
-    BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
+//printf("[%uBytes]Ciphertext is:\n", ciphertext_len);
+//BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
 
     unsigned char* decryptedtext = (unsigned char*)malloc(ciphertext_len);
 
@@ -206,7 +207,6 @@ void sendCryptoFileTo(int sock, const char* fs_name){
         int blockCount = 0;
         unsigned char* digest;
         while((fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs)) > 0){
-            cout << sdbuf;
             if(blockCount == 0)
                 hmac_SHA256((unsigned char*)sdbuf, fs_block_sz, key_hmac, digest);
             else
@@ -215,10 +215,10 @@ void sendCryptoFileTo(int sock, const char* fs_name){
             unsigned char* ciphertext = (unsigned char*)malloc(fs_block_sz+16);
             unsigned int ciphertext_len = encrypt((unsigned char*)sdbuf, fs_block_sz, key, NULL, ciphertext);
             
-            cout << "cipherlen: "<<ciphertext_len<<"\tfs_block_sz: "<<fs_block_sz<<"\n";
+            //cout << "cipherlen: "<<ciphertext_len<<"\tfs_block_sz: "<<fs_block_sz<<"\n";
 
-    printf("[%uBytes]Ciphertext is:\n", ciphertext_len);
-    BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
+//printf("[%uBytes]Ciphertext is:\n", ciphertext_len);
+//BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
 
             if(send(sock, ciphertext, ciphertext_len, 0) < 0){
                 fprintf(stderr, "ERROR: Failed to send file. (errno = %d)\n", errno);
@@ -282,8 +282,8 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name){
 
             cout << "/" << LENGTH << " Bytes\n";   
 
-    printf("[%uBytes]Ciphertext is:\n", fr_block_sz);
-    BIO_dump_fp (stdout, (const char *)recvbuf, fr_block_sz);
+//printf("[%uBytes]Ciphertext is:\n", fr_block_sz);
+//BIO_dump_fp (stdout, (const char *)recvbuf, fr_block_sz);
 
 
             unsigned char* plaintext = (unsigned char*)malloc(fr_block_sz + 16);

@@ -25,6 +25,9 @@ int main(){
         if(strcmp(opcode.c_str(), "exit") == 0 || strcmp(opcode.c_str(), "quit") == 0 ){
             return 0;
         }
+        if(strcmp(opcode.c_str(), "clear") == 0 ){
+            system("clear");
+        }
 
         //get filename for upload/download
         string fname;
@@ -86,9 +89,6 @@ int main(){
             //message_digest_SHA256((unsigned char*)msg, strlen(msg), digest);            
             unsigned char key_hmac[]="0123456789012345678901234567891";
             hmac_SHA256((unsigned char*)msg, strlen(msg), key_hmac, digest);
-
-            
-
         }
 
         //empty the cin buffer, so no chained command happens

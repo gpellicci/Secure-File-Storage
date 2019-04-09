@@ -124,11 +124,13 @@ void hmac_SHA256(unsigned char* msg, unsigned int len, unsigned char* key_hmac, 
   HMAC_CTX_free(mdctx);
   
   
+  /*
   printf("Digest is:\n");
   for(int n=0;n<hash_size; n++){
     printf("%02x", (unsigned char) hash_buf[n]);
   }
   printf("\n");
+  */
 }
 
 bool compare_hmac_SHA256(unsigned char* myDigest, unsigned char* recvDigest){
