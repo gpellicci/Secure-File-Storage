@@ -1,10 +1,10 @@
 all: client server
 	
 server: server.cpp
-	g++ server.cpp server.h -o server -lcrypto
+	g++ -o server server.cpp -lcrypto
 
 client: client.cpp
-	g++ client.cpp client.h -o client -lcrypto
+	g++ -o client client.cpp -lcrypto
 
 clean:
 	rm server client

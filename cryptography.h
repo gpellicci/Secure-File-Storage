@@ -4,6 +4,9 @@
 #include <openssl/hmac.h>
 #include <string.h>
 
+#include "keygen.h"
+
+
 void handleErrors(void)
 {
   printf("Error crypto\n");

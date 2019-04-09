@@ -1,5 +1,4 @@
 #include "server.h"
-#include "cryptography.h"
 #include "communication.h"
 
 using namespace std; 

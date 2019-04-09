@@ -1,5 +1,4 @@
 #include "client.h"
-#include "cryptography.h"
 #include "communication.h"
 #include "checkInputs.h"
 
@@ -8,7 +7,6 @@ using namespace std;
 
 
 int main(){
-
 
     while(1){
         //prompt

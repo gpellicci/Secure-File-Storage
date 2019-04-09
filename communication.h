@@ -1,4 +1,5 @@
 #include "fileManipulation.h"
+#include "cryptography.h"
 
 using namespace std;
 
