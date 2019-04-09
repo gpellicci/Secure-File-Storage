@@ -43,7 +43,12 @@ bool prepare_socket(struct sockaddr_in& serverAddr, int& serv_sock){
         return false;
     }
 
-    listen(server_sock, MAX_CONNECTION);
+    int listen_ret = listen(server_sock, MAX_CONNECTION); 
+    if(listen_ret == -1){
+        perror("Could not listen. Error");
+        return false;
+    }   
+    printf("All good, listening...\n");
 	return true;
 }
 
@@ -58,10 +63,12 @@ int main(){
     int c = sizeof(struct sockaddr_in);
 /*
 	TODO
-	int servr_sock;
-	bool r = prepare_socket();
+    sockaddr_in serverAddr;
+	int server_sock;
+	bool r = prepare_socket(serverAddr, server_sock);
 	if(!r){
 		cout << "ERRORE!\n";
+        return 1;
 	}
 */
 

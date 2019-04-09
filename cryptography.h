@@ -11,6 +11,9 @@ void handleErrors(void)
   exit(1);
 }
 
+//todo 4 encrypt / decrypt non sono corrette
+//dobbiamo fare update ad ogni ciclo sui blocchi e final solo all'ultimo
+
 int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
   unsigned char *iv, unsigned char *ciphertext)
 {
@@ -87,30 +90,6 @@ int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
   EVP_CIPHER_CTX_free(ctx);
 
   return plaintext_len;
-}
-
-
-void message_digest_SHA256(const unsigned char *message, size_t message_len, unsigned char*& digest)
-{
-  EVP_MD_CTX *mdctx;
-
-  if((mdctx = EVP_MD_CTX_create()) == NULL)
-    handleErrors();
-
-  if(1 != EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL))
-    handleErrors();
-
-  if(1 != EVP_DigestUpdate(mdctx, message, message_len))
-    handleErrors();
-
-  if((digest = (unsigned char *)OPENSSL_malloc(EVP_MD_size(EVP_sha256()))) == NULL)
-    handleErrors();
-
-  unsigned int digest_len;
-  if(1 != EVP_DigestFinal_ex(mdctx, digest, &digest_len))
-    handleErrors();
-
-  EVP_MD_CTX_destroy(mdctx);
 }
 
 
