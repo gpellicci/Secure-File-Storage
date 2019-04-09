@@ -1,0 +1,8 @@
+
+1_ aggiungere file: client.h e server.h dove mettere costanti e funzioni di utilità
+
+2_ aggiungere funzioni randomness
+
+3_ aggiustare HMAC, ciclare solo sull'update e non so init e final
+
+4
