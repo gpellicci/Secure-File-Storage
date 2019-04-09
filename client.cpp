@@ -37,6 +37,9 @@ int main(){
 
         //establish connection to the server
         int client_sock = connectToServer(serverIp, serverPort);
+        if(client_sock == -1){
+            return 1;
+        }
 
         //send the op code
         int len = sendCryptoString(client_sock, opcode.c_str());
@@ -71,7 +74,7 @@ int main(){
             //build the path of the file
             string path = "clientDir/" + fdw_name;            
             //receive the file and put to the path
-            recvCryptoFileFrom(client_sock, path.c_str());
+            unsigned int file_len = recvCryptoFileFrom(client_sock, path.c_str());
         }
         else if(strcmp(opcode.c_str(), "info") == 0 ){
             cout << "AES-256-cbc\n";

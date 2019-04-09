@@ -175,7 +175,9 @@ void sendCryptoFileTo(int sock, const char* fs_name){
     unsigned char key_hmac[]="0123456789012345678901234567891";
     char sdbuf[LENGTH]; 
     string path = fs_name;
-    unsigned int len = getFileSize(path);
+    unsigned int len;
+    //todo controlla chiamata
+    getFileSize(path, len);
 
     unsigned int nBlocks = len / LENGTH;
     unsigned int additionalSize = nBlocks*16;
@@ -185,10 +187,13 @@ void sendCryptoFileTo(int sock, const char* fs_name){
     printf("nBlocks: %u\tadd: %u\tnewtot: %u\n", nBlocks, additionalSize, (len+additionalSize));
     len += additionalSize;
     
+    
+
     //send file size
     if(sendCryptoSize(sock, len) == false)
         return;
     cout << "Sending file...\n";
+
     FILE *fs = fopen(fs_name, "r");
     if(fs == NULL){
         cout << "ERROR: File not found.\n";        

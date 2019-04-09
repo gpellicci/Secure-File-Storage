@@ -12,6 +12,8 @@
 5_ getFileSize(): ftell ritorna -1 in caso di errori, la nostra funzione ritorna un unsigned int per forza. O mettiamo un ritorno bool e size la ritorniamo per riferimento (dopo averla passata come argomento) oppure boh
 Dobbiamo sapere se la getFileSize ha avuto problemi oppure no. Inoltre devo conoscere la dimensione del file che per forza `e unsigned int (deve arrivare fino a 2^32 4GB) ..... fammi sapere cosa ne pensi
 
+****5 done -> ritorno bool, modifico per riferimento size
+
 6_ unificare checkStrSize e checkAllowedChars in unica funzione
 
 ****6 done -> function checkInputString()
