@@ -14,7 +14,7 @@ bool getFileSize( std::string path, unsigned int &size){
 	// set the file pointer to end of file
 	int ret = fseek( pFile, 0, SEEK_END );
 	if(ret < 0){
-		perror("ERRORE:\n");
+		perror("Could not seek to the end of the file. Error:\n");
 		return false;
 	}
 
@@ -30,7 +30,7 @@ bool getFileSize( std::string path, unsigned int &size){
 	// close file
 	ret = fclose( pFile );
 	if(ret < 0){
-		perror("ERROR:\n");
+		perror("Could not close the file. Error:\n");
 		size = 0;
 		return false;
 	}
