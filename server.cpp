@@ -29,7 +29,6 @@ using namespace std;
 int main(){
     struct sockaddr_in serverAddr;
 	int server_sock;
-s
 	bool result = prepareSocket(serverAddr, server_sock, serverIp, serverPort);
 	if(!result){
 		cout << "ERRORE!\n";

@@ -40,8 +40,8 @@ int main(){
         //get op code 
         string opcode;
         cin >> opcode;        
-        if(!checkInputs(opcode, cmdMaxLen))
-            return 1
+        if(!checkInputString(opcode, cmdMaxLen))
+            return 1;
         
 
         //exit program condition
@@ -54,7 +54,7 @@ int main(){
         if(strcmp(opcode.c_str(), "up") == 0 || strcmp(opcode.c_str(), "down") == 0 ){
             cout << "Insert filename: ";
             cin >> fname;     
-            if(!checkInputs(fname, filenameMaxLen))
+            if(!checkInputString(fname, filenameMaxLen))
                 return 1;
         }
 
