@@ -17,6 +17,13 @@ bool sendCryptoSize(int sock, uint32_t len){
 
     unsigned char* plaintext = (unsigned char*)&lmsg;
     unsigned char* ciphertext = (unsigned char*)malloc(sizeof(uint32_t));
+	/*
+		TODO
+	if(!ciphertext){
+		perror("ERRORE:\n");
+		return false;
+	}
+	*/
     int plaintext_len = sizeof(uint32_t);
 
     unsigned int ciphertext_len = encrypt(plaintext, plaintext_len, key, NULL, ciphertext);
@@ -41,8 +48,23 @@ uint32_t recvCryptoSize(int sock){
 
     unsigned char *key = (unsigned char *)"01234567012345670123456701234567";
     const unsigned int ciphertext_len = 16;
-    unsigned char* ciphertext = (unsigned char*)malloc(ciphertext_len);    
+    unsigned char* ciphertext = (unsigned char*)malloc(ciphertext_len); 
+	/*
+		TODO
+	if(!ciphertext){
+		perror("ERRORE:\n");
+		return -1;
+	}
+*/   
+
     unsigned char* decryptedtext = (unsigned char*)malloc(sizeof(uint32_t)+16);
+	/*
+		TODO
+	if(!decryptedtext){
+		perror("ERRORE:\n");
+		return -1;
+	}
+*/
 
     //receive the ciphertext
     int ret = recv(sock, ciphertext, ciphertext_len, 0);    

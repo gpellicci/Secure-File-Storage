@@ -6,7 +6,7 @@ bool checkStrSize(string s, unsigned int max_len){
 	return true;
 }
 
-char ok_chars[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_-.@";
+const char ok_chars[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_-.@";
 
 bool checkAllowedChars(const char* s){
 	if(s == NULL)

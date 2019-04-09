@@ -21,6 +21,34 @@
 
 using namespace std; 
 
+/*
+	TODO funzione a parte che prepara il socket, nel caso aggiungere a un file server.h
+
+bool prepare_socket(struct sockaddr_in& serverAddr, int& serv_sock){
+
+    //Prepare the sockaddr_in structure
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    serverAddr.sin_port = htons( server_port );
+
+    server_sock = socket(AF_INET, SOCK_STREAM, 0);
+    if(server_sock == -1){
+        perror("Could not create socket. Error");
+        return false;
+    }
+    //Bind
+    if( bind(server_sock,(struct sockaddr *)&serverAddr , sizeof(serverAddr)) < 0){
+        //print the error message
+        perror("Bind failed. Error");
+        return false;
+    }
+
+    listen(server_sock, MAX_CONNECTION);
+	return true;
+}
+
+*/
+
 int main(){
     //std::string s = "prova.txt";
     //printf("\nSize is %u\n", getFileSize(s));
@@ -28,7 +56,14 @@ int main(){
     struct sockaddr_in serverAddr, client;
     int server_port = 9090;
     int c = sizeof(struct sockaddr_in);
-
+/*
+	TODO
+	int servr_sock;
+	bool r = prepare_socket();
+	if(!r){
+		cout << "ERRORE!\n";
+	}
+*/
 
     //Prepare the sockaddr_in structure
     serverAddr.sin_family = AF_INET;

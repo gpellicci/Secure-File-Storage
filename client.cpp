@@ -64,6 +64,8 @@ int main(){
             }
         }
 
+
+	// TODO const parametr in client.h??
         //establish connection to the server
         string serverIp = "127.0.0.1";
         unsigned int serverPort = 9090;
