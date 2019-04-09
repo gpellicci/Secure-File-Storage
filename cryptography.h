@@ -103,7 +103,7 @@ void hmac_SHA256(unsigned char* msg, unsigned int len, unsigned char* key_hmac, 
   //create a buffer for our digest
   hash_buf = (unsigned char*)malloc(hash_size); 
 	if(!hash_buf){
-  		perror();
+  		perror("ERRORE:\n");
   		return;
 	}
 	
@@ -111,7 +111,7 @@ void hmac_SHA256(unsigned char* msg, unsigned int len, unsigned char* key_hmac, 
   HMAC_CTX* mdctx;
   mdctx = HMAC_CTX_new();
 	if(!mdctx){
-  		perror();
+  		perror("ERRORE:\n");
   		return;
 	}
 	

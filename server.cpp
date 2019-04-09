@@ -7,7 +7,7 @@ using namespace std;
 int main(){
     struct sockaddr_in serverAddr;
 	int server_sock;
-	bool result = prepareSocket(serverAddr, server_sock, serverIp, serverPort);
+	bool result = prepareSocket(serverAddr, server_sock);
 	if(!result){
 		cout << "ERRORE!\n";
         return 1;

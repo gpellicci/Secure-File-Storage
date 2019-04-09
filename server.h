@@ -15,11 +15,11 @@
 //constant definition
 #define cmdMaxLen 10
 #define filenameMaxLen 255
-#define serverIp "127.0.0.1"
 #define serverPort 9090
 #define MAX_CONNECTION 30
+#define serverIp "127.0.0.1"
 
-bool prepareSocket(struct sockaddr_in& serverAddr, int& server_sock, const char* serverIp, unsigned int serverPort){
+bool prepareSocket(struct sockaddr_in& serverAddr, int& server_sock){
 
     //Prepare the sockaddr_in structure
     serverAddr.sin_family = AF_INET;
@@ -29,20 +29,20 @@ bool prepareSocket(struct sockaddr_in& serverAddr, int& server_sock, const char*
     server_sock = socket(AF_INET, SOCK_STREAM, 0);
     if(server_sock == -1){
         perror("Could not create socket. Error");
-        return false;
+        return 0;
     }
     //Bind
     if( bind(server_sock,(struct sockaddr *)&serverAddr , sizeof(serverAddr)) < 0){
         //print the error message
         perror("Bind failed. Error");
-        return false;
+        return 0;
     }
 
     int listen_ret = listen(server_sock, MAX_CONNECTION); 
     if(listen_ret == -1){
         perror("Could not listen. Error");
-        return false;
+        return 0;
     }   
     printf("All good, listening...\n");
-	return true;
+	return 1;
 }

@@ -7,7 +7,7 @@ unsigned int getFileSize( std::string path ){
 	 
 	int ret = fseek( pFile, 0, SEEK_END );
 	if(ret < 0){
-		perror();
+		perror("ERRORE:\n");
 		return 0;
 	}
 
@@ -16,7 +16,7 @@ unsigned int getFileSize( std::string path ){
 	 
 	ret = ftell( pFile );
 	if(ret < 0){
-		perror();
+		perror("ERRORE:\n");
 		return 0;
 	}
 
