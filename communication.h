@@ -4,6 +4,7 @@
 using namespace std;
 
 const unsigned int LENGTH = 512;
+const int blockSize = EVP_CIPHER_block_size(EVP_aes_256_cbc());
 
 
 bool sendCryptoSize(int sock, uint32_t len){
@@ -78,8 +79,7 @@ uint32_t recvCryptoSize(int sock){
     uint32_t len = (decryptedtext[3] << 24) | (decryptedtext[2] << 16) | (decryptedtext[1] << 8) | (decryptedtext[0]);
     //put to host format
     len = ntohl(len);
-    //show       
-    
+    //show           
     printf("\033[1;32mDecryptedSIZE: \033[31;47m%u\033[0m\n", len);    
     return len;    
 }
@@ -168,33 +168,38 @@ int recvCryptoString(int sock, char*& buf){
     
 }
 
-
-
-
-
 void sendCryptoFileTo(int sock, const char* fs_name){    
     unsigned char *key = (unsigned char *)"01234567012345670123456701234567";
     unsigned char key_hmac[]="0123456789012345678901234567891";
     char sdbuf[LENGTH]; 
     string path = fs_name;
+
     unsigned int len;
-    //todo controlla chiamata
     getFileSize(path, len);
 
     unsigned int nBlocks = len / LENGTH;
-    unsigned int additionalSize = nBlocks*16;
-    unsigned int exceed = len % 16;
-    if(exceed != 0)
-        additionalSize += (16 - exceed);
-    printf("nBlocks: %u\tadd: %u\tnewtot: %u\n", nBlocks, additionalSize, (len+additionalSize));
-    len += additionalSize;
-    
-    
-
+    if((len % LENGTH)>0)
+        nBlocks++;
+        
     //send file size
     if(sendCryptoSize(sock, len) == false)
         return;
-    cout << "Sending file...\n";
+    cout << "Sending file...\n"; 
+
+    /*debug*/
+    unsigned int cipherSize = len + 16 - (len %16);
+    cout << "ciphersize: " << cipherSize << "\n";
+    cout << "nBlocks: "<<nBlocks<<"\n";
+
+    EVP_CIPHER_CTX *ctx;
+    unsigned char* iv = NULL;
+    int tmp_len;
+    /* Create and initialise the context */
+    if(!(ctx = EVP_CIPHER_CTX_new())) 
+        handleErrors();
+    if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv))
+        handleErrors();
+
 
     FILE *fs = fopen(fs_name, "r");
     if(fs == NULL){
@@ -204,39 +209,51 @@ void sendCryptoFileTo(int sock, const char* fs_name){
     else{
         bzero(sdbuf, LENGTH); // TODO sostituire con memset();
         int fs_block_sz;
-        int hash_size = EVP_MD_size(EVP_sha256());
         int blockCount = 0;
-        unsigned char* digest;
+        int ciphertext_len;
+        int totCipherLen = 0;
+        int totSentLen = 0;
+        unsigned char* ciphertext = (unsigned char*)malloc(LENGTH + blockSize);
         while((fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs)) > 0){
-            if(blockCount == 0)
-                hmac_SHA256((unsigned char*)sdbuf, fs_block_sz, key_hmac, digest);
-            else
-                hmac_SHA256((unsigned char*)sdbuf, fs_block_sz, digest, digest);
+            cout << "Block #"<< blockCount << "\tsize: " << fs_block_sz << "\n";
 
-            unsigned char* ciphertext = (unsigned char*)malloc(fs_block_sz+16);
-            unsigned int ciphertext_len = encrypt((unsigned char*)sdbuf, fs_block_sz, key, NULL, ciphertext);
-            
-            //cout << "cipherlen: "<<ciphertext_len<<"\tfs_block_sz: "<<fs_block_sz<<"\n";
 
+            if(1 != EVP_EncryptUpdate(ctx, ciphertext, &tmp_len, (unsigned char*)sdbuf, fs_block_sz))
+                handleErrors();
+            ciphertext_len = tmp_len;   
+         
+            if(nBlocks == (blockCount + 1)){
+                cout << "**Final block\n";
+                if(1 != EVP_EncryptFinal_ex(ctx, ciphertext + ciphertext_len, &tmp_len)) 
+                    handleErrors();
+                ciphertext_len += tmp_len;
+            }
+
+
+            cout << "ciphertext_len: " << ciphertext_len << "\n";
 //printf("[%uBytes]Ciphertext is:\n", ciphertext_len);
 //BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
 
-            if(send(sock, ciphertext, ciphertext_len, 0) < 0){
+            int l;
+            if( (l = send(sock, ciphertext, ciphertext_len, 0)) < 0){
                 fprintf(stderr, "ERROR: Failed to send file. (errno = %d)\n", errno);
                 break;
-            }            
-            cout << "Block #"<< blockCount << "\tsize: " << fs_block_sz << "\n";
+            }     
+            cout << "\tsent: " << l <<"\n";
+
+            totSentLen += l;
+            totCipherLen += ciphertext_len;
             blockCount++;
 
             bzero(sdbuf, LENGTH);
         }
-
         fclose(fs);
+
         cout << "\tFile sent\n Sending hash..\n";
+
+        cout << "CipherlenTotal: " << totCipherLen << "\n";
+        cout << "totSentLen: " << totSentLen << "\n";
         
-        sendCryptoString(sock, (const char*)digest);
-        cout << "Hash sent.\n";
-        printf("\n");
     }
 }
 
@@ -247,80 +264,128 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name){
     unsigned char key_hmac[]="0123456789012345678901234567891";
 
     unsigned int remaining;
-    const int LENGTH = 512+16;
-    char* recvbuf[LENGTH];
-    unsigned char* digest;
-
+    char* recvbuf = (char*)malloc(LENGTH + blockSize); 
     //get file length
     remaining = recvCryptoSize(sock);
-    //recv(sock, (void*)&remaining, sizeof(unsigned int), 0);
     if(remaining == 0){
         cout << "ERROR: File not found.\n";        
         return 0;
     }
+
+    /* size if the plain file size */
     unsigned int size = remaining;
+    cout << "filesize: " << size <<"\n";
+
+    
+
+    /* remaining represent the amount of ciphertext that i still have to receive */
+    remaining = remaining + 16;    
+    if((size % LENGTH) != 0)
+        remaining = remaining - (size % blockSize);
+    
+    /* number of fragments to receive */ 
+    unsigned int nBlocks = remaining / LENGTH;
+    if((remaining % LENGTH) != 0)
+        nBlocks++;
+
+    cout << "remaining: "<<remaining<<"\n";
+    cout << "nBlocks: "<<nBlocks<<"\n";
+
+
+
+    EVP_CIPHER_CTX *ctx;
+    unsigned char* iv = NULL;
+    int tmp_len;
+    /* Create and initialise the context */
+    if(!(ctx = EVP_CIPHER_CTX_new())) 
+        handleErrors();
+    if(1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv))
+        handleErrors();
+
 
     FILE *fr = fopen(fr_name, "w");
     if(fr == NULL)
         printf("File '%s' cannot be opened", fr_name);
     else{
         unsigned int blockCount = 0;
-        bzero(recvbuf, LENGTH); 
-        int fr_block_sz = 0;
-        while(remaining > 0){
-            
-            cout << "Block #"<< blockCount << "\tsize: ";
+        int fr_block_sz = 0; 
+        int plaintext_len;
+        unsigned char* plaintext = (unsigned char*)malloc(LENGTH + blockSize);
+        
+        while(remaining > 0){            
+            int write_sz, recv_len;
 
-            int write_sz;
+            /* full fragment 512byte */
             if(remaining >= LENGTH){    //usual block
-                fr_block_sz = recv(sock, recvbuf, LENGTH, 0);
-                cout << LENGTH;
+                cout << "**fullblock\n";
+                recv_len = LENGTH;
             }
-            else{   //last block
-                fr_block_sz = recv(sock, recvbuf, remaining, 0);
-                cout << remaining%LENGTH;
+            /* not full fragment -> last one */
+            else{   //last block has different size in general, considering also possible padding            
+                cout << "*****partial block\n";
+                recv_len = remaining;
             }
 
-            cout << "/" << LENGTH << " Bytes\n";   
+            /* recv the ciphertext */
+            fr_block_sz = recv(sock, recvbuf, recv_len, 0);
+            if(fr_block_sz == -1){
+                perror("Socket issue. Error");
+            }
+
+            cout << "\trecv: " << fr_block_sz << "\n";
+            /* debug */
+            cout << "Block #"<< blockCount <<"\tremaining "<<remaining - fr_block_sz <<"\tsize: " << fr_block_sz << "/" << LENGTH << " Bytes\n";   
+
+            /* decrypt the fragment */
+            if(1 != EVP_DecryptUpdate(ctx, plaintext, &tmp_len, (unsigned char*)recvbuf, fr_block_sz))
+                handleErrors();
+            plaintext_len = tmp_len;                
+            cout << "plaintext_len: " << plaintext_len << "\n";  
+
+
+            /* last block -> finalize and free the context */
+            if(nBlocks == (blockCount + 1)){ 
+                if(1 != EVP_DecryptFinal_ex(ctx, plaintext + plaintext_len, &tmp_len)) 
+                    handleErrors();
+                plaintext_len += tmp_len;                 
+
+                cout << "tmp_len: " << tmp_len << "\n";
+                cout << "plaintext_len: " << plaintext_len << "\n";                                
+                                  
+                cout << "----------finalized\n";
+            }
+
+            if(nBlocks == blockCount){    
+                cout << "context freed";            
+                EVP_CIPHER_CTX_free(ctx);                 
+            }                
 
 //printf("[%uBytes]Ciphertext is:\n", fr_block_sz);
 //BIO_dump_fp (stdout, (const char *)recvbuf, fr_block_sz);
-
-
-            unsigned char* plaintext = (unsigned char*)malloc(fr_block_sz + 16);
-            unsigned int plaintext_len = decrypt((unsigned char*)recvbuf, fr_block_sz, key, NULL, plaintext);         
-            if(blockCount == 0)
-                hmac_SHA256(plaintext, plaintext_len, key_hmac, digest);
-            else
-                hmac_SHA256(plaintext, plaintext_len, digest, digest);
-
+        
+            /* write to file the just decrypted plaintext */
             write_sz = fwrite(plaintext, sizeof(char), plaintext_len, fr);
                 
             if(write_sz < plaintext_len){
                 cout << "File write failed.\n";
             }
 
-            blockCount++;
             remaining -= fr_block_sz;
+            blockCount++;
+            printf("remaning %d\n",remaining);
+
 
         }
-        int hash_size = EVP_MD_size(EVP_sha256());
+        /* free memory */
+        free(plaintext);
+        free(recvbuf);
+
     }
+
     fclose(fr);
     cout << "\tFile received.\n"; 
 
-    char* recvDigest;
-    recvCryptoString(sock, recvDigest);
-    if(compare_hmac_SHA256(digest, (unsigned char*)recvDigest))
-        cout << "\033[1;32mFILE IS AUTHENTIC!\033[0m\n";
-    else{
-        cout << "\033[1;31mFILE AUTHENTICITY/INTEGRITY HAS BEEN COMPROMISED\n";
-        string del = "rm ";
-        del = del + fr_name;
-        system(del.c_str());
-        cout << "FILE DELETED\033[0m\n";
-    }
-  
     return size;       
     
 }
+

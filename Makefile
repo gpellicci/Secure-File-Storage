@@ -7,4 +7,5 @@ client: client.cpp
 	g++ -o client client.cpp -lcrypto
 
 clean:
+	clear
 	rm server client

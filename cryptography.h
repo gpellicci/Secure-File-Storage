@@ -9,7 +9,7 @@
 
 void handleErrors(void)
 {
-  printf("Error crypto\n");
+  perror("Error crypto\n");
   exit(1);
 }
 

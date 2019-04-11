@@ -9,6 +9,7 @@ using namespace std;
 int main(){
 
     while(1){
+    respawn:
         //prompt
         cout << "\n>> ";
 
@@ -25,6 +26,23 @@ int main(){
         }
         if(strcmp(opcode.c_str(), "clear") == 0 ){
             system("clear");
+            system("clear");
+            goto respawn;
+        }
+        if(strcmp(opcode.c_str(), "diff") == 0 ){
+            string f;
+            cin >> f;
+            string cmd = "diff ";
+            cmd = cmd + "serverDir/"+ f + " clientDir/" + f;
+            cout << "cmd: " << cmd << "\n";
+            system(cmd.c_str());
+            goto respawn;
+        }
+        else if(strcmp(opcode.c_str(), "info") == 0 ){
+            cout << "AES-256-cbc\n";
+            cout <<"Key size: " << EVP_CIPHER_key_length(EVP_aes_256_cbc());
+            cout <<"\nBlock size: " << EVP_CIPHER_block_size(EVP_aes_256_cbc())<<"\n";
+            goto respawn;
         }
 
         //get filename for upload/download
@@ -76,17 +94,6 @@ int main(){
             string path = "clientDir/" + fdw_name;            
             //receive the file and put to the path
             unsigned int file_len = recvCryptoFileFrom(client_sock, path.c_str());
-        }
-        else if(strcmp(opcode.c_str(), "info") == 0 ){
-            cout << "AES-256-cbc\n";
-            cout <<"Key size: " << EVP_CIPHER_key_length(EVP_aes_256_cbc());
-            cout <<"\nBlock size: " << EVP_CIPHER_block_size(EVP_aes_256_cbc())<<"\n";
-
-            char msg[] = "Poggers";
-            unsigned char* digest;
-            //message_digest_SHA256((unsigned char*)msg, strlen(msg), digest);            
-            unsigned char key_hmac[]="0123456789012345678901234567891";
-            hmac_SHA256((unsigned char*)msg, strlen(msg), key_hmac, digest);
         }
 
         //empty the cin buffer, so no chained command happens

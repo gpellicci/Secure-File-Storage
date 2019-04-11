@@ -67,6 +67,12 @@ int main(){
             //send the file to the client
             sendCryptoFileTo(tcp_client, path.c_str());
         }
+        else if(strcmp(buf, "info") == 0 ){
+            char* buf = (char*)malloc(20);
+            int l = recv(tcp_client, buf, 20, 0);
+            cout << "l:\t"<<l<<"\n";
+        }
+
 
         //operation over, close socket
         close(tcp_client);
