@@ -24,15 +24,15 @@ int main(){
     while(1){
     respawn:
 
+        /* empty the std input on each loop except the first to avoid chained commands */
         if(firstLoop == false){            
-            //empty the cin buffer, so no chained command happens
             cin.clear();
             cin.ignore(numeric_limits<streamsize>::max(), '\n');
         }
         else
             firstLoop = false;
 
-        //prompt
+        // prompt
         cout << "\n>> ";
 
         //get op code 
@@ -42,15 +42,17 @@ int main(){
             return 1;
         
 
-        //exit program condition
+        //exit command
         if(strcmp(opcode.c_str(), "exit") == 0 || strcmp(opcode.c_str(), "quit") == 0 ){
             return 0;
         }
+        /* screen clear */
         else if(strcmp(opcode.c_str(), "clear") == 0 ){
             system("clear");
             system("clear");
             goto respawn;
         }
+        /* debugging diff tool */
         else if(strcmp(opcode.c_str(), "diff") == 0 ){
             string f;
             cin >> f;
@@ -60,6 +62,7 @@ int main(){
             system(cmd.c_str());
             goto respawn;
         }
+        /* info about protocol */
         else if(strcmp(opcode.c_str(), "info") == 0 ){
             cout << "Encryption:\n\033[1;33mAES-256-cbc\033[0m\n";
             cout << "\tKey size: " << EVP_CIPHER_key_length(EVP_aes_256_cbc()) << "\n";
@@ -69,7 +72,7 @@ int main(){
             goto respawn;
         }
 
-        //get filename for upload/download
+        /* get filename for upload/download operation */
         string fname;
         if( checkUpDownOperation(opcode) ){
             cout << "Insert filename: ";
@@ -88,7 +91,7 @@ int main(){
         }
         
 
-     
+        /* list operation */
         if(strcmp(opcode.c_str(), "list") == 0 ){
             //send the op code
             int len = sendCryptoString(client_sock, opcode.c_str());
@@ -103,6 +106,7 @@ int main(){
             //operation done, close socket
             close(client_sock);
         }
+        /* upload operation */
         else if(strcmp(opcode.c_str(), "up") == 0 ){
             //send the op code
             int len = sendCryptoString(client_sock, opcode.c_str());
@@ -119,6 +123,7 @@ int main(){
             //operation done, close socket
             close(client_sock);
         }
+        /* download operation */
         else if(strcmp(opcode.c_str(), "down") == 0 ){    
             //send the op code
             int len = sendCryptoString(client_sock, opcode.c_str());
@@ -133,6 +138,7 @@ int main(){
             //operation done, close socket
             close(client_sock);
         }        
+        /* bad command issued */
         else{
             cout << "Command not found! Try with:\n";
             commands_available();
