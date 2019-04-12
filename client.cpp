@@ -6,23 +6,32 @@
 using namespace std;
 
 
-void commands_avaliable(){
+void commands_available(){
 
     cout << "\033[1;33mCOMMANDS\033[0m\n";
-    cout << "'list' to have a list of file avaliable on server\n";  
-    cout << "'down filename' to download file filename from server\n";  
-    cout << "'up filename' to upload file filename on server\n";  
-    cout << "'info' to have some information about protocol\n";  
+    cout << "'list' to have a list of file available on the server\n";  
+    cout << "'down filename' to download file filename from the server\n";  
+    cout << "'up filename' to upload file filename on the server\n";  
+    cout << "'info' to have some information about the protocol\n";  
     cout << "'quit' or 'exit' to terminate the program\n";  
 }
 
 
 int main(){   
-
-    commands_avaliable();
+    bool firstLoop = true;
+    commands_available();
 
     while(1){
     respawn:
+
+        if(firstLoop == false){            
+            //empty the cin buffer, so no chained command happens
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        }
+        else
+            firstLoop = false;
+
         //prompt
         cout << "\n>> ";
 
@@ -37,12 +46,12 @@ int main(){
         if(strcmp(opcode.c_str(), "exit") == 0 || strcmp(opcode.c_str(), "quit") == 0 ){
             return 0;
         }
-        if(strcmp(opcode.c_str(), "clear") == 0 ){
+        else if(strcmp(opcode.c_str(), "clear") == 0 ){
             system("clear");
             system("clear");
             goto respawn;
         }
-        if(strcmp(opcode.c_str(), "diff") == 0 ){
+        else if(strcmp(opcode.c_str(), "diff") == 0 ){
             string f;
             cin >> f;
             string cmd = "diff ";
@@ -62,24 +71,21 @@ int main(){
 
         //get filename for upload/download
         string fname;
-        if(strcmp(opcode.c_str(), "up") == 0 || strcmp(opcode.c_str(), "down") == 0 ){
+        if( checkUpDownOperation(opcode) ){
             cout << "Insert filename: ";
             cin >> fname;     
             if(!checkInputString(fname, filenameMaxLen))
                 return 1;
         }
-        else{
-            cout << "Command not found! Try whith:\n";
-            commands_avaliable();
-            continue;
-        }
 
-        //establish connection to the server
-        int client_sock = connectToServer(serverIp, serverPort);
-        if(client_sock == -1){
-            return 1;
+        /* establish connection to the server only if cmd is 'list', 'down', 'up' */
+        int client_sock;
+        if( checkRemoteOperation(opcode) ){
+            client_sock = connectToServer(serverIp, serverPort);
+            if(client_sock == -1){
+                return 1;
+            }
         }
-
         
 
      
@@ -94,6 +100,8 @@ int main(){
             system("cat clientDir/listDL/list.txt | grep -v \"\\*\"");
             //remove the file
             system("rm clientDir/listDL/list.txt");
+            //operation done, close socket
+            close(client_sock);
         }
         else if(strcmp(opcode.c_str(), "up") == 0 ){
             //send the op code
@@ -101,13 +109,15 @@ int main(){
             //send the name of the file that you are going to upload            
             string fup_name = fname;
             sendCryptoString(client_sock, fup_name.c_str());
-            //sendl(client_sock, fup_name.c_str());
             
             //build the path of the file
             string path = "clientDir/";
             path = path + fup_name;
             //get the file locally and send it
             sendCryptoFileTo(client_sock, path.c_str());
+
+            //operation done, close socket
+            close(client_sock);
         }
         else if(strcmp(opcode.c_str(), "down") == 0 ){    
             //send the op code
@@ -119,14 +129,17 @@ int main(){
             string path = "clientDir/" + fdw_name;            
             //receive the file and put to the path
             unsigned int file_len = recvCryptoFileFrom(client_sock, path.c_str());
+
+            //operation done, close socket
+            close(client_sock);
+        }        
+        else{
+            cout << "Command not found! Try with:\n";
+            commands_available();
+            goto respawn;
         }
 
-        //empty the cin buffer, so no chained command happens
-        cin.clear();
-        cin.ignore(numeric_limits<streamsize>::max(), '\n');
 
-        //operation done, close socket
-        close(client_sock);
     }
 
     return 0;

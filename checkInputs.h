@@ -32,3 +32,17 @@ bool checkInputString(string s, unsigned int maxLen){
     }
     return true;
 }
+
+bool checkRemoteOperation(string s){
+	if(strcmp(s.c_str(), "up") == 0 || strcmp(s.c_str(), "down") == 0 || strcmp(s.c_str(), "list") == 0 )
+		return true;
+	else
+		return false;
+}
+
+bool checkUpDownOperation(string s){
+	if(strcmp(s.c_str(), "up") == 0 || strcmp(s.c_str(), "down") == 0 )
+		return true;
+	else
+		return false;
+}
