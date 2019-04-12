@@ -1,6 +1,6 @@
 #include <openssl/rand.h>
 
-bool keyGenerator(int len, const char* fname){
+bool keyGenToFile(int len, const char* fname){
 	int ret = RAND_poll();
 	if(ret == -1){
 		perror("RAND_poll. Error");
@@ -37,6 +37,27 @@ bool keyGenerator(int len, const char* fname){
 
 		return true;
 	}
+}
+
+bool keyGen(unsigned char* &pointer, int len){
+	int ret = RAND_poll();
+	if(ret == -1){
+		perror("RAND_poll. Error");
+		return false;
+	}
+
+	pointer = (unsigned char*)malloc(len);
+	if(pointer == NULL){
+		perror("Could not allocate memory. Error");
+		return false;
+	}
+	ret = RAND_bytes(pointer, len);	
+	if(ret == -1){
+		perror("RAND_bytes. Error");
+		return false;
+	}
+
+	return true;
 }
 
 bool readKeyFromFile(unsigned char** key, int len, const char* fname){

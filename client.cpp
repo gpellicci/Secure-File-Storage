@@ -6,7 +6,7 @@
 using namespace std;
 
 
-int main(){
+int main(){   
 
     while(1){
     respawn:
@@ -39,9 +39,11 @@ int main(){
             goto respawn;
         }
         else if(strcmp(opcode.c_str(), "info") == 0 ){
-            cout << "AES-256-cbc\n";
-            cout <<"Key size: " << EVP_CIPHER_key_length(EVP_aes_256_cbc());
-            cout <<"\nBlock size: " << EVP_CIPHER_block_size(EVP_aes_256_cbc())<<"\n";
+            cout << "Encryption:\n\033[1;33mAES-256-cbc\033[0m\n";
+            cout << "\tKey size: " << EVP_CIPHER_key_length(EVP_aes_256_cbc()) << "\n";
+            cout << "\tBlock size: " << EVP_CIPHER_block_size(EVP_aes_256_cbc())<< "\n\n";
+            cout << "HMAC:\n\033[1;33mSHA-256\033[0m\n";
+            cout << "\tDigest size: " << EVP_MD_size(EVP_sha256()) << "\n";   
             goto respawn;
         }
 

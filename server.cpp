@@ -12,7 +12,6 @@ int main(){
         return 1;
 	}
 
-
     while(1){
         //accept client connection
         struct sockaddr_in client;
@@ -23,8 +22,6 @@ int main(){
                 return 1;
             }
         printf("Accepted connection from %s:%d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
-
-
 
         char* buf;
 

@@ -276,8 +276,6 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name){
     unsigned int size = remaining;
     cout << "filesize: " << size <<"\n";
 
-    
-
     /* remaining represent the amount of ciphertext that i still have to receive */
     remaining = remaining + 16;    
     if((size % LENGTH) != 0)
