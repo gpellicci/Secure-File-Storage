@@ -207,7 +207,7 @@ void sendCryptoFileTo(int sock, const char* fs_name){
         return;
     }
     else{
-        bzero(sdbuf, LENGTH); // TODO sostituire con memset();
+        memset(sdbuf, 0, LENGTH);
         int fs_block_sz;
         int blockCount = 0;
         int ciphertext_len;
@@ -245,7 +245,7 @@ void sendCryptoFileTo(int sock, const char* fs_name){
             totCipherLen += ciphertext_len;
             blockCount++;
 
-            bzero(sdbuf, LENGTH);
+            memset(sdbuf, 0, LENGTH);
         }
         fclose(fs);
 

@@ -6,7 +6,20 @@
 using namespace std;
 
 
+void commands_avaliable(){
+
+    cout << "\033[1;33mCOMMANDS\033[0m\n";
+    cout << "'list' to have a list of file avaliable on server\n";  
+    cout << "'down filename' to download file filename from server\n";  
+    cout << "'up filename' to upload file filename on server\n";  
+    cout << "'info' to have some information about protocol\n";  
+    cout << "'quit' or 'exit' to terminate the program\n";  
+}
+
+
 int main(){   
+
+    commands_avaliable();
 
     while(1){
     respawn:
@@ -55,6 +68,11 @@ int main(){
             if(!checkInputString(fname, filenameMaxLen))
                 return 1;
         }
+        else{
+            cout << "Command not found! Try whith:\n";
+            commands_avaliable();
+            continue;
+        }
 
         //establish connection to the server
         int client_sock = connectToServer(serverIp, serverPort);
@@ -62,11 +80,12 @@ int main(){
             return 1;
         }
 
-        //send the op code
-        int len = sendCryptoString(client_sock, opcode.c_str());
+        
 
      
         if(strcmp(opcode.c_str(), "list") == 0 ){
+            //send the op code
+            int len = sendCryptoString(client_sock, opcode.c_str());
             //receive file list as .txt
             recvCryptoFileFrom(client_sock, "clientDir/listDL/list.txt");        
             cout << "File list:\n";
@@ -77,6 +96,8 @@ int main(){
             system("rm clientDir/listDL/list.txt");
         }
         else if(strcmp(opcode.c_str(), "up") == 0 ){
+            //send the op code
+            int len = sendCryptoString(client_sock, opcode.c_str());
             //send the name of the file that you are going to upload            
             string fup_name = fname;
             sendCryptoString(client_sock, fup_name.c_str());
@@ -89,6 +110,8 @@ int main(){
             sendCryptoFileTo(client_sock, path.c_str());
         }
         else if(strcmp(opcode.c_str(), "down") == 0 ){    
+            //send the op code
+            int len = sendCryptoString(client_sock, opcode.c_str());
             //send the name of the file that you are going to download
             string fdw_name = fname;
             sendCryptoString(client_sock, fdw_name.c_str());    
@@ -108,3 +131,4 @@ int main(){
 
     return 0;
 }
+
