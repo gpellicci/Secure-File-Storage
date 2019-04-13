@@ -94,10 +94,22 @@ int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
   return plaintext_len;
 }
 
+void SHA256(char* msg, unsigned int len, unsigned char*& digest){
 
-void hmac_SHA256(unsigned char* msg, unsigned int len, unsigned char* key_hmac, unsigned char*& hash_buf){
+  unsigned int digestLen = 32;
+  EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+
+  EVP_DigestInit(ctx, EVP_sha256());
+  EVP_DigestUpdate(ctx, (unsigned char*)msg, len);
+  EVP_DigestFinal(ctx, digest, &digestLen);
+  EVP_MD_CTX_free(ctx);
+
+}
+
+
+void hmac_SHA256(char* msg, unsigned int len, unsigned char* key_hmac, unsigned char*& hash_buf){
   //create key
-  size_t key_hmac_size = sizeof(key_hmac);
+  size_t key_hmac_size = 32;
   //declaring the hash function we want to use
   const EVP_MD* md = EVP_sha256();
   int hash_size; //size of the digest
@@ -137,10 +149,34 @@ void hmac_SHA256(unsigned char* msg, unsigned int len, unsigned char* key_hmac, 
 }
 
 bool compare_hmac_SHA256(unsigned char* myDigest, unsigned char* recvDigest){
-  int hash_size = EVP_MD_size(EVP_sha256());
-  int ret = CRYPTO_memcmp(myDigest, recvDigest, hash_size);
-  if(ret != 0)
-    return false;
-  else
+  unsigned int hash_size = EVP_MD_size(EVP_sha256());
+  
+  if( CRYPTO_memcmp(myDigest, recvDigest, hash_size) == 0)
     return true;
+  else
+    return false;  
+}
+
+
+
+void fileHmac(const char* fname){
+    unsigned char *key_hmac = (unsigned char*)"01234567890123456789012345678912";
+    unsigned int key_size = 32;
+
+    HMAC_CTX* mdctx = HMAC_CTX_new();
+    HMAC_Init_ex(mdctx, key_hmac, key_size, EVP_sha256(), NULL);
+
+    FILE* fd = fopen(fname, "r");
+    int size;
+    const int chunk = 512;
+    unsigned char* buf = (unsigned char*)malloc(chunk);
+    while( (size = fread(buf, sizeof(char), chunk, fd)) > 0){
+      HMAC_Update(mdctx, buf, size);
+    }
+
+    unsigned char* md = (unsigned char*)malloc(32);
+    unsigned int md_len = 0;
+    HMAC_Final(mdctx, md, &md_len);
+    printf("HMAC: ");
+    printHexKey(md, md_len);
 }

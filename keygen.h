@@ -60,7 +60,7 @@ bool keyGen(unsigned char* &pointer, int len){
 	return true;
 }
 
-bool readKeyFromFile(unsigned char** key, int len, const char* fname){
+bool readKeyFromFile(unsigned char* &key, int len, const char* fname){
 	unsigned char* tmp = (unsigned char*)malloc(len);
 	if(tmp == NULL){
 		perror(". Error");
@@ -86,7 +86,7 @@ bool readKeyFromFile(unsigned char** key, int len, const char* fname){
 			return false;
 		}
 
-		*key = tmp;
+		key = tmp;
 		return true;
 	}
 }

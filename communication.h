@@ -5,6 +5,8 @@ using namespace std;
 
 const unsigned int LENGTH = 512;
 const int blockSize = EVP_CIPHER_block_size(EVP_aes_256_cbc());
+const int hmacSize = EVP_MD_size(EVP_sha256());
+const size_t key_hmac_size = 32;
 
 
 bool sendCryptoSize(int sock, uint32_t len){
@@ -168,10 +170,13 @@ int recvCryptoString(int sock, char*& buf){
     
 }
 
+
+
 void sendCryptoFileTo(int sock, const char* fs_name){    
     unsigned char *key = (unsigned char *)"01234567012345670123456701234567";
-    unsigned char key_hmac[]="0123456789012345678901234567891";
-    char sdbuf[LENGTH]; 
+    unsigned char *key_hmac = (unsigned char *)"012345678901234567890123456789123";// = (unsigned char*)"01234";
+    /* blockSize + hmacSize */
+    unsigned char* sdbuf = (unsigned char*)malloc(LENGTH + hmacSize);
     string path = fs_name;
 
     unsigned int len;
@@ -191,14 +196,26 @@ void sendCryptoFileTo(int sock, const char* fs_name){
     cout << "ciphersize: " << cipherSize << "\n";
     cout << "nBlocks: "<<nBlocks<<"\n";
 
+// ENCRYPTION
     EVP_CIPHER_CTX *ctx;
     unsigned char* iv = NULL;
     int tmp_len;
-    /* Create and initialise the context */
+    /* Create and initialize the context */
     if(!(ctx = EVP_CIPHER_CTX_new())) 
         handleErrors();
     if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv))
         handleErrors();
+
+// HMAC
+    HMAC_CTX* mdctx;
+    //readKeyFromFile(key_hmac, hmacSize, "mykey");
+    cout << "key: " << key_hmac_size << "\n";
+    printHexKey(key_hmac, key_hmac_size);
+    if(!(mdctx = HMAC_CTX_new()))
+        handleErrors();
+    if(1 != HMAC_Init_ex(mdctx, key_hmac, key_hmac_size, EVP_sha256(), NULL))
+        handleErrors();
+
 
 
     FILE *fs = fopen(fs_name, "r");
@@ -213,11 +230,36 @@ void sendCryptoFileTo(int sock, const char* fs_name){
         int ciphertext_len;
         int totCipherLen = 0;
         int totSentLen = 0;
-        unsigned char* ciphertext = (unsigned char*)malloc(LENGTH + blockSize);
+        unsigned char* ciphertext = (unsigned char*)malloc(LENGTH + blockSize + hmacSize);
+        unsigned char* hmac = (unsigned char*)malloc(EVP_MD_size(EVP_sha256()));
+        unsigned int hmac_len;
         while((fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs)) > 0){
             cout << "Block #"<< blockCount << "\tsize: " << fs_block_sz << "\n";
 
+            /* digest of plaintext fragment */
+            if(1 != HMAC_Update(mdctx, sdbuf, fs_block_sz)){
+                handleErrors();
+            }
 
+            cout << "hmac on: " << fs_block_sz << " bytes\n";
+
+            if(nBlocks == (blockCount + 1)){
+                cout << "!!!!!!!!!last mac\n";
+                if(1 != HMAC_Final(mdctx, hmac, &hmac_len))
+                    handleErrors();
+                printf("hmac len %u\n", hmac_len);
+                HMAC_CTX_free(mdctx);
+
+                void* r = memcpy(sdbuf + fs_block_sz, hmac, hmacSize);
+                if((sdbuf+fs_block_sz) != r){
+                    perror("memcpy. Error");
+                    return;
+                }
+                fs_block_sz += hmacSize;
+            }
+
+
+            /* encrypt */
             if(1 != EVP_EncryptUpdate(ctx, ciphertext, &tmp_len, (unsigned char*)sdbuf, fs_block_sz))
                 handleErrors();
             ciphertext_len = tmp_len;   
@@ -227,6 +269,7 @@ void sendCryptoFileTo(int sock, const char* fs_name){
                 if(1 != EVP_EncryptFinal_ex(ctx, ciphertext + ciphertext_len, &tmp_len)) 
                     handleErrors();
                 ciphertext_len += tmp_len;
+                EVP_CIPHER_CTX_free(ctx);
             }
 
 
@@ -250,7 +293,10 @@ void sendCryptoFileTo(int sock, const char* fs_name){
         fclose(fs);
 
         cout << "\tFile sent\n Sending hash..\n";
-
+        cout << "HMAC IS -> ";
+        printHexKey(hmac, hmacSize);
+        cout << "\nhmac ";
+        printHexKey(key_hmac, hmacSize);
         cout << "CipherlenTotal: " << totCipherLen << "\n";
         cout << "totSentLen: " << totSentLen << "\n";
         
@@ -261,10 +307,10 @@ void sendCryptoFileTo(int sock, const char* fs_name){
 //recv file with known length
 unsigned int recvCryptoFileFrom(int sock, const char* fr_name){    
     unsigned char *key = (unsigned char *)"01234567012345670123456701234567";
-    unsigned char key_hmac[]="0123456789012345678901234567891";
+    unsigned char *key_hmac = (unsigned char*)"012345678901234567890123456789123";
 
     unsigned int remaining;
-    char* recvbuf = (char*)malloc(LENGTH + blockSize); 
+    char* recvbuf = (char*)malloc(LENGTH + blockSize + hmacSize); 
     //get file length
     remaining = recvCryptoSize(sock);
     if(remaining == 0){
@@ -277,7 +323,8 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name){
     cout << "filesize: " << size <<"\n";
 
     /* remaining represent the amount of ciphertext that i still have to receive */
-    remaining = remaining + 16;    
+    /* padding block + hmac */
+    remaining = remaining + blockSize + hmacSize;    
     if((size % LENGTH) != 0)
         remaining = remaining - (size % blockSize);
     
@@ -290,7 +337,7 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name){
     cout << "nBlocks: "<<nBlocks<<"\n";
 
 
-
+// encryption 
     EVP_CIPHER_CTX *ctx;
     unsigned char* iv = NULL;
     int tmp_len;
@@ -300,6 +347,17 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name){
     if(1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv))
         handleErrors();
 
+// HMAC
+    HMAC_CTX* mdctx;
+    //readKeyFromFile(key_hmac, hmacSize, "mykey");
+    cout << "key: " << hmacSize << "\n";
+    printHexKey(key_hmac, hmacSize);
+    if(!(mdctx = HMAC_CTX_new()))
+        handleErrors();
+    if(1 != HMAC_Init_ex(mdctx, key_hmac, 32, EVP_sha256(), NULL))
+        handleErrors();
+
+
 
     FILE *fr = fopen(fr_name, "w");
     if(fr == NULL)
@@ -308,7 +366,10 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name){
         unsigned int blockCount = 0;
         int fr_block_sz = 0; 
         int plaintext_len;
-        unsigned char* plaintext = (unsigned char*)malloc(LENGTH + blockSize);
+        //todo blocksize necessario?
+        unsigned char* plaintext = (unsigned char*)malloc(LENGTH + blockSize + hmacSize);
+        unsigned char* recv_hmac = (unsigned char*)malloc(hmacSize);
+        
         
         while(remaining > 0){            
             int write_sz, recv_len;
@@ -351,6 +412,17 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name){
                 cout << "plaintext_len: " << plaintext_len << "\n";                                
                                   
                 cout << "----------finalized\n";
+
+
+                plaintext_len -= hmacSize;
+                void* r = memcpy(recv_hmac, plaintext + plaintext_len, hmacSize);
+                if(recv_hmac != r){
+                    perror("memcpy. Error");
+                    return 0;
+                }
+                cout <<"!!!*!*!*!*!*RECEIVED HMAC";
+                printHexKey(recv_hmac, hmacSize);
+
             }
 
             if(nBlocks == blockCount){    
@@ -361,7 +433,12 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name){
 //printf("[%uBytes]Ciphertext is:\n", fr_block_sz);
 //BIO_dump_fp (stdout, (const char *)recvbuf, fr_block_sz);
         
-            /* write to file the just decrypted plaintext */
+            /* digest of plaintext fragment */
+            if(1 != HMAC_Update(mdctx, plaintext, plaintext_len)){
+                handleErrors();
+            }
+
+            /* write to file the just decrypted plaintext */            
             write_sz = fwrite(plaintext, sizeof(char), plaintext_len, fr);
                 
             if(write_sz < plaintext_len){
@@ -374,11 +451,32 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name){
 
 
         }
+
+        unsigned int hmac_len;
+        unsigned char* hmac = (unsigned char*)malloc(32);
+        if(1 != HMAC_Final(mdctx, hmac, &hmac_len))
+            handleErrors();
+        printf("hmac len %u\n", hmac_len);
+        HMAC_CTX_free(mdctx);
+
+    cout << "HMAC: ";
+    printHexKey(hmac, 32);
+
         /* free memory */
         free(plaintext);
         free(recvbuf);
 
+        /* equal hmac -> authentic */
+        if(compare_hmac_SHA256(hmac, recv_hmac)){
+            cout << "\033[1;32mFILE IS AUTHENTIC\033[0m\n";
+        }
+        else{
+            cout << "\033[1;31mFILE IS NOT AUTHENTIC\033[0m\n";
+        }
+
     }
+
+
 
     fclose(fr);
     cout << "\tFile received.\n"; 

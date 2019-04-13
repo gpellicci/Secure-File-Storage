@@ -18,6 +18,39 @@ void commands_available(){
 
 
 int main(){   
+
+/*
+    FILE* fs = fopen("serverDir/gg.c", "r");
+    unsigned char* sdbuf = (unsigned char*)malloc(512);    
+    unsigned char* k = (unsigned char*)malloc(32);
+    unsigned char* md = (unsigned char*)malloc(32);
+    k = (unsigned char *)"0123456789012345678901234567891";
+    
+    //readKeyFromFile(k, 32, "mykey");
+    int fs_block_sz;
+    HMAC_CTX* mdctx = HMAC_CTX_new();
+    HMAC_Init_ex(mdctx, k, 32, EVP_sha256(), NULL);
+    while((fs_block_sz = fread(sdbuf, sizeof(char), 512, fs)) > 0){  
+        cout << "byte "<<fs_block_sz<<"\n";
+        HMAC_Update(mdctx, sdbuf, fs_block_sz);
+    }
+    unsigned int md_len;
+    HMAC_Final(mdctx, md, &md_len);
+    printf("Hmac -> ");
+    printHexKey(md, 32);
+    
+cout << "--------------------------------\n\n\n\n\n";
+    fileHmac("serverDir/short");
+/*
+    const char* msg = "Short message";
+    unsigned char* key = (unsigned char*)"01234567890123456789012345678912";
+    unsigned char* md = (unsigned char*)malloc(32);
+    hmac_SHA256((char*)msg, 13, key, md);
+    printHexKey(md, 32);
+
+cout << "--------------------------------\n\n\n\n\n";
+*/
+
     bool firstLoop = true;
     commands_available();
 
@@ -60,6 +93,34 @@ int main(){
             cmd = cmd + "serverDir/"+ f + " clientDir/" + f;
             cout << "cmd: " << cmd << "\n";
             system(cmd.c_str());
+            goto respawn;
+        }        
+        /* debugging HMAC tool */
+        else if(strcmp(opcode.c_str(), "hmac") == 0 ){
+            cout << "Insert <server/client> <filename> <file_key>\n";
+            string sc;
+            cin >> sc;
+            string f;
+            cin >> f;
+            string kfile;
+            cin >> kfile;            
+            string cmd = "echo -n \"$(cat " + sc + "Dir/" + f + ")\" | openssl sha256 -hmac " + kfile;
+            cout << "cmd: " << cmd << "\n";
+            system(cmd.c_str());
+            cout << "\nhmac key: ";
+            unsigned char* k;
+            readKeyFromFile(k, 32, kfile.c_str());
+            printHexKey(k, 32);
+            goto respawn;
+        }
+        /* debugging keygen tool */
+        else if(strcmp(opcode.c_str(), "keygen") == 0 ){
+            string f;
+            cin >> f;
+            unsigned char* key_hmac;
+            keyGenToFile(32, f.c_str());
+            readKeyFromFile(key_hmac, 32, f.c_str());
+            printHexKey(key_hmac, 32);
             goto respawn;
         }
         /* info about protocol */
