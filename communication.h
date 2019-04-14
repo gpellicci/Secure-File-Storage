@@ -305,9 +305,19 @@ void sendCryptoFileTo(int sock, const char* fs_name){
 
 
 //recv file with known length
-unsigned int recvCryptoFileFrom(int sock, const char* fr_name){    
+unsigned int recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name){    
     unsigned char *key = (unsigned char *)"01234567012345670123456701234567";
     unsigned char *key_hmac = (unsigned char*)"012345678901234567890123456789123";
+
+    /* path strings to handle hmac verification */
+    string tmp_path (dir_name);
+    tmp_path = tmp_path + "/.tmp/" + fr_name;
+    string perm_path (dir_name);
+    perm_path = perm_path + "/" + fr_name;
+
+    cout << "1) "<<tmp_path;
+    cout <<"\n2) "<<perm_path<<"\n";
+
 
     unsigned int remaining;
     char* recvbuf = (char*)malloc(LENGTH + blockSize + hmacSize); 
@@ -359,7 +369,7 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name){
 
 
 
-    FILE *fr = fopen(fr_name, "w");
+    FILE *fr = fopen(tmp_path.c_str(), "w");
     if(fr == NULL)
         printf("File '%s' cannot be opened", fr_name);
     else{
@@ -469,18 +479,25 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name){
         /* equal hmac -> authentic */
         if(compare_hmac_SHA256(hmac, recv_hmac)){
             cout << "\033[1;32mFILE IS AUTHENTIC\033[0m\n";
+            string cmd = "mv ";
+            cmd = cmd + dir_name + "/.tmp/" + fr_name + " " + dir_name + "/";
+            cout << "cmd: " << cmd << "\n";
+            system(cmd.c_str());
+            cout << "\tFile received.\n"; 
         }
         else{
-            cout << "\033[1;31mFILE IS NOT AUTHENTIC\033[0m\n";
+            cout << "\033[1;31mFILE IS NOT AUTHENTIC\n";
+            string cmd = "rm ";
+            cmd = cmd + dir_name + "/.tmp/" + fr_name;
+            system(cmd.c_str());
+            cout << "\tFILE DELETED.\033[0m\n";
         }
-
     }
 
 
 
     fclose(fr);
-    cout << "\tFile received.\n"; 
-
+    
     return size;       
     
 }

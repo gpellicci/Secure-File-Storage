@@ -157,13 +157,13 @@ cout << "--------------------------------\n\n\n\n\n";
             //send the op code
             int len = sendCryptoString(client_sock, opcode.c_str());
             //receive file list as .txt
-            recvCryptoFileFrom(client_sock, "clientDir/listDL/list.txt");        
+            recvCryptoFileFrom(client_sock, "list.txt", "clientDir/.list");        
             cout << "File list:\n";
             //remove final line, which is just a * and cat the rest
             //allow you to send the file even if the directory is empty
-            system("cat clientDir/listDL/list.txt | grep -v \"\\*\"");
+            system("cat clientDir/.list/list.txt | grep -v \"\\*\"");
             //remove the file
-            system("rm clientDir/listDL/list.txt");
+            system("rm clientDir/.list/list.txt");
             //operation done, close socket
             close(client_sock);
         }
@@ -194,7 +194,7 @@ cout << "--------------------------------\n\n\n\n\n";
             //build the path of the file
             string path = "clientDir/" + fdw_name;            
             //receive the file and put to the path
-            unsigned int file_len = recvCryptoFileFrom(client_sock, path.c_str());
+            unsigned int file_len = recvCryptoFileFrom(client_sock, fdw_name.c_str(), "clientDir");
 
             //operation done, close socket
             close(client_sock);

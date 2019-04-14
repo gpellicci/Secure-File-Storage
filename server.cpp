@@ -32,13 +32,13 @@ int main(){
         if(strcmp(buf, "list") == 0 ){            
             cout << "list\n";
             //generate a file with a list of files (no directories)
-            system("ls -p serverDir/ | grep -v / > serverDir/list/list.txt");            
+            system("ls -p serverDir/ | grep -v / > serverDir/.tmp/list.txt");            
             //add a * to the end of the file (so it's not empty if no file are present)
-            system("echo '*' >> serverDir/list/list.txt");
+            system("echo '*' >> serverDir/.tmp/list.txt");
             //send the file containing the list to the client
-            sendCryptoFileTo(tcp_client, "serverDir/list/list.txt");
+            sendCryptoFileTo(tcp_client, "serverDir/.tmp/list.txt");
             //remove the file
-            system("rm serverDir/list/list.txt");
+            system("rm serverDir/.tmp/list.txt");
         }
         else if(strcmp(buf, "up") == 0 ){
             cout << "upload\n";
@@ -51,7 +51,7 @@ int main(){
             string path = "serverDir/";
             path = path + fup_name;
             //receive the file and put to the path
-            recvCryptoFileFrom(tcp_client, path.c_str());
+            recvCryptoFileFrom(tcp_client, (const char*)fup_name, "serverDir");
         }
         else if(strcmp(buf, "down") == 0 ){
             cout << "download\n";
