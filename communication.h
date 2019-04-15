@@ -248,7 +248,6 @@ void sendCryptoFileTo(int sock, const char* fs_name){
                 if(1 != HMAC_Final(mdctx, hmac, &hmac_len))
                     handleErrors();
                 printf("hmac len %u\n", hmac_len);
-                HMAC_CTX_free(mdctx);
 
                 void* r = memcpy(sdbuf + fs_block_sz, hmac, hmacSize);
                 if((sdbuf+fs_block_sz) != r){
@@ -269,7 +268,6 @@ void sendCryptoFileTo(int sock, const char* fs_name){
                 if(1 != EVP_EncryptFinal_ex(ctx, ciphertext + ciphertext_len, &tmp_len)) 
                     handleErrors();
                 ciphertext_len += tmp_len;
-                EVP_CIPHER_CTX_free(ctx);
             }
 
 
@@ -290,7 +288,12 @@ void sendCryptoFileTo(int sock, const char* fs_name){
 
             memset(sdbuf, 0, LENGTH);
         }
+        /* close file */
         fclose(fs);
+        /* free context */
+        HMAC_CTX_free(mdctx);
+        EVP_CIPHER_CTX_free(ctx);
+
 
         cout << "\tFile sent\n Sending hash..\n";
         cout << "HMAC IS -> ";
@@ -434,11 +437,7 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_n
                 printHexKey(recv_hmac, hmacSize);
 
             }
-
-            if(nBlocks == blockCount){    
-                cout << "context freed";            
-                EVP_CIPHER_CTX_free(ctx);                 
-            }                
+            
 
 //printf("[%uBytes]Ciphertext is:\n", fr_block_sz);
 //BIO_dump_fp (stdout, (const char *)recvbuf, fr_block_sz);
@@ -467,7 +466,11 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_n
         if(1 != HMAC_Final(mdctx, hmac, &hmac_len))
             handleErrors();
         printf("hmac len %u\n", hmac_len);
+
+        /* free context */
         HMAC_CTX_free(mdctx);
+        EVP_CIPHER_CTX_free(ctx);                 
+
 
     cout << "HMAC: ";
     printHexKey(hmac, 32);
