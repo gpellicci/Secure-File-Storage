@@ -1,6 +1,6 @@
 using namespace std;
 
-const char ok_chars[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_-.@";
+const char ok_chars[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_-@";
 
 
 bool checkStrSize(string s, unsigned int max_len){
