@@ -17,3 +17,5 @@ Dobbiamo sapere se la getFileSize ha avuto problemi oppure no. Inoltre devo cono
 6_ unificare checkStrSize e checkAllowedChars in unica funzione
 
 ****6 done -> function checkInputString()
+
+7_ dopo diffie hellman non usare la chiave condivisa come chiave simmetrica. Usare come chiave H(sharedKey), se troppo lunga si puo troncare l'hash
