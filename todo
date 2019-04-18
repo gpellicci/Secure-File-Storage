@@ -5,9 +5,15 @@
 
 2_ aggiungere funzioni randomness
 
+****2 done
+
 3_ aggiustare HMAC, ciclare solo sull'update e non so init e final
 
+****3 done
+
 4_ encrypt/decrypt deve essere fatta per bene: init(una sola volta), update ciclica ad ogni frammento, update+final all'ultimo blocco
+
+****4 done
 
 5_ getFileSize(): ftell ritorna -1 in caso di errori, la nostra funzione ritorna un unsigned int per forza. O mettiamo un ritorno bool e size la ritorniamo per riferimento (dopo averla passata come argomento) oppure boh
 Dobbiamo sapere se la getFileSize ha avuto problemi oppure no. Inoltre devo conoscere la dimensione del file che per forza `e unsigned int (deve arrivare fino a 2^32 4GB) ..... fammi sapere cosa ne pensi
