@@ -19,6 +19,8 @@
 #define serverIp "127.0.0.1"
 #define serverPort 9090
 
+using namespace std;
+
 
 int connectToServer(const char* ip, unsigned int port){
     
@@ -31,17 +33,26 @@ int connectToServer(const char* ip, unsigned int port){
 
     int client_sock = socket(AF_INET, SOCK_STREAM, 0);
     if(client_sock == -1){
-        printf("Could not create socket. Error\n");
+        perror("Could not create socket. Error\n");
         return -1;
     }
 
     //Connect to remote server
-    if (connect(client_sock , (struct sockaddr *)&serverAddr , sizeof(serverAddr)) < 0)
-    {
+    if (connect(client_sock , (struct sockaddr *)&serverAddr , sizeof(serverAddr)) < 0){
         perror("Connect failed. Error");
         return -1;
     }
 
-    printf("Connection to the server %s:%d successful\n",  inet_ntoa(serverAddr.sin_addr), port);;
+    printf("Connection to the server %s:%d successful\n",  inet_ntoa(serverAddr.sin_addr), port);
     return client_sock;
+}
+
+
+void commands_available(){
+    cout << "\033[1;33mCOMMANDS\033[0m\n";
+    cout << "'list' to have a list of file available on the server\n";  
+    cout << "'down filename' to download file filename from the server\n";  
+    cout << "'up filename' to upload file filename on the server\n";  
+    cout << "'info' to have some information about the protocol\n";  
+    cout << "'quit' or 'exit' to terminate the program\n";  
 }

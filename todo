@@ -25,3 +25,12 @@ Dobbiamo sapere se la getFileSize ha avuto problemi oppure no. Inoltre devo cono
 ****6 done -> function checkInputString()
 
 7_ dopo diffie hellman non usare la chiave condivisa come chiave simmetrica. Usare come chiave H(sharedKey), se troppo lunga si puo troncare l'hash
+
+8_ controllare client.cpp da "list" in poi
+
+9_ aggiungere hmac a stringhe e size
+
+10_ replay attack esiste se riapro la connessione e scambio chiavi ogni volta? (chiedere prof)
+
+11_ gestione errori e free(), vanno messi tutti e ovunque? (chiedere prof)
+

@@ -2,61 +2,16 @@
 #include "communication.h"
 #include "checkInputs.h"
 
-
 using namespace std;
-
-
-void commands_available(){
-
-    cout << "\033[1;33mCOMMANDS\033[0m\n";
-    cout << "'list' to have a list of file available on the server\n";  
-    cout << "'down filename' to download file filename from the server\n";  
-    cout << "'up filename' to upload file filename on the server\n";  
-    cout << "'info' to have some information about the protocol\n";  
-    cout << "'quit' or 'exit' to terminate the program\n";  
-}
-
 
 int main(){   
 
-/*
-    FILE* fs = fopen("serverDir/gg.c", "r");
-    unsigned char* sdbuf = (unsigned char*)malloc(512);    
-    unsigned char* k = (unsigned char*)malloc(32);
-    unsigned char* md = (unsigned char*)malloc(32);
-    k = (unsigned char *)"0123456789012345678901234567891";
-    
-    //readKeyFromFile(k, 32, "mykey");
-    int fs_block_sz;
-    HMAC_CTX* mdctx = HMAC_CTX_new();
-    HMAC_Init_ex(mdctx, k, 32, EVP_sha256(), NULL);
-    while((fs_block_sz = fread(sdbuf, sizeof(char), 512, fs)) > 0){  
-        cout << "byte "<<fs_block_sz<<"\n";
-        HMAC_Update(mdctx, sdbuf, fs_block_sz);
-    }
-    unsigned int md_len;
-    HMAC_Final(mdctx, md, &md_len);
-    printf("Hmac -> ");
-    printHexKey(md, 32);
-    
-cout << "--------------------------------\n\n\n\n\n";
-    fileHmac("serverDir/short");
-/*
-    const char* msg = "Short message";
-    unsigned char* key = (unsigned char*)"01234567890123456789012345678912";
-    unsigned char* md = (unsigned char*)malloc(32);
-    hmac_SHA256((char*)msg, 13, key, md);
-    printHexKey(md, 32);
-
-cout << "--------------------------------\n\n\n\n\n";
-*/
 
     bool firstLoop = true;
     commands_available();
 
     while(1){
-    respawn:
-
+respawn:
         /* empty the std input on each loop except the first to avoid chained commands */
         if(firstLoop == false){            
             cin.clear();
@@ -70,7 +25,8 @@ cout << "--------------------------------\n\n\n\n\n";
 
         //get op code 
         string opcode;
-        cin >> opcode;        
+        cin >> opcode;   
+        /* sanitize input */     
         if(!checkInputString(opcode, cmdMaxLen))
             return 1;
         
@@ -151,11 +107,15 @@ cout << "--------------------------------\n\n\n\n\n";
             }
         }
         
+        /* i am now connected to the server */
 
         /* list operation */
         if(strcmp(opcode.c_str(), "list") == 0 ){
-            //send the op code
+            //send the opcode
             int len = sendCryptoString(client_sock, opcode.c_str());
+            if(len == -1)
+                goto respawn;
+            
             //receive file list as .txt
             recvCryptoFileFrom(client_sock, "list.txt", "clientDir/.list");        
             cout << "File list:\n";

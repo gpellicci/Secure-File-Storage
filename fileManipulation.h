@@ -1,3 +1,5 @@
+const long long int maxFileSize = (1ULL << 32);
+
 bool getFileSize( std::string path, unsigned int &size){
 	//in case of error:
 		//size = 0
@@ -19,17 +21,23 @@ bool getFileSize( std::string path, unsigned int &size){
 	}
 
 	// get the file size	 
-	long int tmp = ftell(pFile);
+	long long int tmp = ftell(pFile);
 	if(tmp < 0){
 		perror("ftell() Error:");
 		return false;
 	}
 
-	size = tmp;
+	/* check 4GB costraint */
+	if(tmp > maxFileSize){
+		printf("too big file. Error:\n");
+		return false;
+	}
+
+	size = (unsigned int)tmp;
 
 	// close file
 	ret = fclose( pFile );
-	if(ret < 0){
+	if(ret != 0){
 		perror("Could not close the file. Error:\n");
 		size = 0;
 		return false;
