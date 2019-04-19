@@ -132,45 +132,44 @@ void SHA256(char* msg, unsigned int len, unsigned char*& digest){
 }
 
 
-void hmac_SHA256(char* msg, unsigned int len, unsigned char* key_hmac, unsigned char*& hash_buf){
+int hmac_SHA256(char* msg, unsigned int len, unsigned char* key_hmac, unsigned char* hash_buf){
   //create key
   size_t key_hmac_size = 32;
   //declaring the hash function we want to use
   const EVP_MD* md = EVP_sha256();
   int hash_size; //size of the digest
   hash_size = EVP_MD_size(md);
-
-  //create a buffer for our digest
-  hash_buf = (unsigned char*)malloc(hash_size); 
-	if(!hash_buf){
-  		perror("ERRORE:\n");
-  		return;
-	}
 	
   //create message digest context
   HMAC_CTX* mdctx;
   mdctx = HMAC_CTX_new();
 	if(!mdctx){
   		perror("ERRORE:\n");
-  		return;
+  		return -1;
 	}
 	
   //Init,Update,Finalise digest 
   // TODO??
-  HMAC_Init_ex(mdctx, key_hmac, key_hmac_size, md, NULL);
-  HMAC_Update(mdctx, (unsigned char*) msg, len);
-  HMAC_Final(mdctx, hash_buf, (unsigned int*) &hash_size);
+  if( 1 != HMAC_Init_ex(mdctx, key_hmac, key_hmac_size, md, NULL)){
+    handleErrors();
+    HMAC_CTX_free(mdctx);
+    return -1;
+  }
+  if( 1 != HMAC_Update(mdctx, (unsigned char*) msg, len)){
+    handleErrors();
+    HMAC_CTX_free(mdctx);
+    return -1;
+  }
+  if( 1 != HMAC_Final(mdctx, hash_buf, (unsigned int*) &hash_size)){
+    handleErrors();
+    HMAC_CTX_free(mdctx);
+    return -1;
+  }
+  
   //Delete context
   HMAC_CTX_free(mdctx);
-  
-  
-  /*
-  printf("Digest is:\n");
-  for(int n=0;n<hash_size; n++){
-    printf("%02x", (unsigned char) hash_buf[n]);
-  }
-  printf("\n");
-  */
+  return hash_size;
+
 }
 
 bool compare_hmac_SHA256(unsigned char* myDigest, unsigned char* recvDigest){

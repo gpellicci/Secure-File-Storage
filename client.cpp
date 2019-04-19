@@ -5,8 +5,12 @@
 using namespace std;
 
 int main(){   
-
-
+/*
+    cout << sizeof(uint32_t) << "\n";
+    unsigned char* dig = (unsigned char*)malloc(32);
+    hmac_SHA256("add", 3, (unsigned char*)"1234", dig);
+    printHexKey(dig, 32);
+    */
     bool firstLoop = true;
     commands_available();
 
@@ -111,6 +115,7 @@ respawn:
             int len = sendCryptoString(client_sock, opcode.c_str());
             if(len == -1)
                 goto respawn;
+            printf("Command issued\n\n");
 
             /* list operation */
             if(strcmp(opcode.c_str(), "list") == 0 ){                
@@ -130,6 +135,8 @@ respawn:
                 //send the name of the file that you are going to upload            
                 string fup_name = fname;
                 sendCryptoString(client_sock, fup_name.c_str());
+                printf("Filename issued\n\n");
+
                 
                 //build the path of the file
                 string path = "clientDir/";
@@ -143,7 +150,7 @@ respawn:
                 //send the name of the file that you are going to download
                 string fdw_name = fname;
                 sendCryptoString(client_sock, fdw_name.c_str());
-
+                printf("Filename issued\n\n");
                 //build the path of the file
                 string path = "clientDir/" + fdw_name;            
 

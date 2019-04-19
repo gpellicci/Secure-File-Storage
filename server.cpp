@@ -28,7 +28,7 @@ int main(){
         int len = recvCryptoString(tcp_client, buf);
         if(len == -1)
             goto respawn;
-        printf("buf: %s\n", buf);
+        printf("**OPERATION: %s\n\n", buf);
 
         if(strcmp(buf, "list") == 0 ){                        
             //generate a file with a list of files (no directories)

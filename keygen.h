@@ -100,3 +100,12 @@ void printHexKey(unsigned char* key, int len){
 		printf("%02x", key[i]);
 	printf("\n");
 }
+
+void printHex(unsigned char* key, int len){
+	if(key == NULL || len < 0)
+		return;
+	
+	for(int i=0; i<len; i++)
+		printf("%02x", key[i]);
+	printf("\n");
+}
