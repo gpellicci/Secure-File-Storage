@@ -47,24 +47,16 @@ bool sendCryptoSize(int sock, uint32_t len){
     return true;    
 }
 
-uint32_t recvCryptoSize(int sock){
-    
-
+uint32_t recvCryptoSize(int sock){    
     unsigned char *key = (unsigned char *)"01234567012345670123456701234567";
     const unsigned int ciphertext_len = blockSize;
 
     unsigned char* ciphertext = (unsigned char*)malloc(ciphertext_len); 
-	if(!ciphertext){
-		perror("ERRORE:\n");
-		return 0;
-	} 
-
     unsigned char* decryptedtext = (unsigned char*)malloc(sizeof(uint32_t)+16);
-	if(!decryptedtext){
+	if(!ciphertext || !decryptedtext){
 		perror("ERRORE:\n");
 		return 0;
 	}
-
 
     //receive the ciphertext
     int ret = recv(sock, ciphertext, ciphertext_len, 0);    
@@ -73,7 +65,6 @@ uint32_t recvCryptoSize(int sock){
         return 0;
     }
 
-    // Redirect our ciphertext to the terminal
 //printf("[%uBytes]CipherSIZE is:\n", ciphertext_len);
 //BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
 
@@ -82,7 +73,7 @@ uint32_t recvCryptoSize(int sock){
     if(decryptedtext_len == -1)
         return 0;
     
-    //recompose the uint16_t from the byte array
+    //recompose the uint32_t from the byte array
     uint32_t len = (decryptedtext[3] << 24) | (decryptedtext[2] << 16) | (decryptedtext[1] << 8) | (decryptedtext[0]);
     //put to host format
     len = ntohl(len);
@@ -100,7 +91,7 @@ int sendCryptoString(int sock, const char* buf){
     unsigned char *key = (unsigned char *)"01234567012345670123456701234567";
     int buf_len = strlen(buf);
 
-    unsigned char* ciphertext = (unsigned char *) malloc(plaintext_len + blockSize);
+    unsigned char* ciphertext = (unsigned char *) malloc(buf_len + 1 + blockSize);
     unsigned char* plaintext = (unsigned char*)malloc(buf_len +1);
     if(!ciphertext || !plaintext){
         free(ciphertext);
@@ -157,19 +148,18 @@ int sendCryptoString(int sock, const char* buf){
 }
 
 int recvCryptoString(int sock, char*& buf){
-    printf("------------ Decrypting ------------\n");
-
     unsigned char *key = (unsigned char *)"01234567012345670123456701234567";
+    printf("------------ Decrypting ------------\n");
     
     unsigned int ciphertext_len = recvCryptoSize(sock);
     if(ciphertext_len == 0){
-        cout << "ERROR crypto\n";
+        perror("ERROR string\n");
         return -1;
     }
 
     unsigned char* ciphertext = (unsigned char*)malloc(ciphertext_len);
     unsigned char* decryptedtext = (unsigned char*)malloc(ciphertext_len);
-    if(ciphertext == NULL || decryptedtext == NULL){
+    if(!ciphertext || !decryptedtext){
         free(ciphertext);
         free(decryptedtext);
         perror("ERROR\n");
@@ -184,11 +174,8 @@ int recvCryptoString(int sock, char*& buf){
         return -1;
     }
 
-
-    // Redirect our ciphertext to the terminal
 //printf("[%uBytes]ciphertext is:\n", ciphertext_len);
 //BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
-
 
     // Decrypt the ciphertext
     int decryptedtext_len = decrypt(ciphertext, ciphertext_len, key, NULL, decryptedtext);
@@ -214,17 +201,17 @@ unsigned int sendCryptoFileTo(int sock, const char* fs_name){
     unsigned char *key_hmac = (unsigned char *)"012345678901234567890123456789123";
     string path = fs_name;
 
-    /* obtain file size */
+    /* Compute file size */
     unsigned int len;
     if(getFileSize(path, len) == false)
         return 0;
     
-    /* compute block number */
+    /* Compute block number */
     unsigned int nBlocks = len / LENGTH;
     if((len % LENGTH)>0)
         nBlocks++;
         
-    /* send file size */
+    /* Send file size */
     if(sendCryptoSize(sock, len) == false)
         return 0;
     cout << "Sending file...\n"; 
@@ -317,6 +304,7 @@ unsigned int sendCryptoFileTo(int sock, const char* fs_name){
                 free(hmac);                
                 HMAC_CTX_free(mdctx);
                 EVP_CIPHER_CTX_free(ctx);
+                fclose(fs);
                 return 0;
             }
 
@@ -331,6 +319,7 @@ unsigned int sendCryptoFileTo(int sock, const char* fs_name){
                     free(hmac);
                     HMAC_CTX_free(mdctx);
                     EVP_CIPHER_CTX_free(ctx);
+                    fclose(fs);
                     return 0;
                 }
                 printf("hmac len %u\n", hmac_len);
@@ -343,6 +332,7 @@ unsigned int sendCryptoFileTo(int sock, const char* fs_name){
                     free(hmac);
                     HMAC_CTX_free(mdctx);
                     EVP_CIPHER_CTX_free(ctx);
+                    fclose(fs);
                     return 0;
                 }
                 fs_block_sz += hmacSize;
@@ -357,6 +347,7 @@ unsigned int sendCryptoFileTo(int sock, const char* fs_name){
                 free(hmac);                
                 HMAC_CTX_free(mdctx);
                 EVP_CIPHER_CTX_free(ctx);
+                fclose(fs);
                 return 0;
             }
             ciphertext_len = tmp_len;   
@@ -371,6 +362,7 @@ unsigned int sendCryptoFileTo(int sock, const char* fs_name){
                     free(hmac);
                     HMAC_CTX_free(mdctx);
                     EVP_CIPHER_CTX_free(ctx);
+                    fclose(fs); 
                     return 0;
                 }
                 ciphertext_len += tmp_len;
@@ -390,6 +382,7 @@ unsigned int sendCryptoFileTo(int sock, const char* fs_name){
                 free(hmac);
                 HMAC_CTX_free(mdctx);
                 EVP_CIPHER_CTX_free(ctx);
+                fclose(fs);
                 return 0;                
             }     
             /* debug */
@@ -407,7 +400,7 @@ unsigned int sendCryptoFileTo(int sock, const char* fs_name){
             free(ciphertext);
             free(hmac);
             HMAC_CTX_free(mdctx);
-            EVP_CIPHER_CTX_free(ctx);
+            EVP_CIPHER_CTX_free(ctx);            
             return 0;
         }
         /* free context */
@@ -418,10 +411,8 @@ unsigned int sendCryptoFileTo(int sock, const char* fs_name){
         cout << "\tFile sent\n Sending hash..\n";
         cout << "HMAC IS -> ";
         printHexKey(hmac, hmacSize);
-        cout << "\nhmac ";
-        printHexKey(key_hmac, hmacSize);
-        cout << "CipherlenTotal: " << totCipherLen << "\n";
-        cout << "totSentLen: " << totSentLen << "\n";
+        //cout << "CipherlenTotal: " << totCipherLen << "\n";
+        //cout << "totSentLen: " << totSentLen << "\n";
         
         /* return file length if ok */
         return len;  
@@ -440,21 +431,16 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_n
     string perm_path (dir_name);
     perm_path = perm_path + "/" + fr_name;
 
-    cout << "1) "<<tmp_path;
-    cout <<"\n2) "<<perm_path<<"\n";
-
-
-    unsigned int remaining;
-    char* recvbuf = (char*)malloc(LENGTH + blockSize + hmacSize); 
-    //get file length
-    remaining = recvCryptoSize(sock);
-    if(remaining == 0){
+    /* receive file length */
+    unsigned int size;
+    size = recvCryptoSize(sock);
+    if(size == 0){
         cout << "ERROR: File not found.\n";        
         return 0;
     }
 
-    /* size if the plain file size */
-    unsigned int size = remaining;
+    /* size is the plainfile size */
+    unsigned int remaining = size;
     cout << "filesize: " << size <<"\n";
 
     /* remaining represent the amount of ciphertext that i still have to receive */
@@ -477,40 +463,67 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_n
     unsigned char* iv = NULL;
     int tmp_len;
     /* Create and initialise the context */
-    if(!(ctx = EVP_CIPHER_CTX_new())) 
+    if(!(ctx = EVP_CIPHER_CTX_new())) {
         handleErrors();
-    if(1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv))
+        return 0;
+    }
+    if(1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)){
         handleErrors();
+        EVP_CIPHER_CTX_free(ctx);
+        return 0;
+    }
 
 // HMAC
     HMAC_CTX* mdctx;
     //readKeyFromFile(key_hmac, hmacSize, "mykey");
     cout << "key: " << hmacSize << "\n";
     printHexKey(key_hmac, hmacSize);
-    if(!(mdctx = HMAC_CTX_new()))
+    if(!(mdctx = HMAC_CTX_new())){
         handleErrors();
-    if(1 != HMAC_Init_ex(mdctx, key_hmac, 32, EVP_sha256(), NULL))
+        EVP_CIPHER_CTX_free(ctx);
+        return 0;
+    }
+    if(1 != HMAC_Init_ex(mdctx, key_hmac, 32, EVP_sha256(), NULL)){        
         handleErrors();
+        EVP_CIPHER_CTX_free(ctx);
+        HMAC_CTX_free(mdctx);
+        return 0;
+    }
 
 
 
     FILE *fr = fopen(tmp_path.c_str(), "w");
-    if(fr == NULL)
-        printf("File '%s' cannot be opened", fr_name);
+    if(fr == NULL){
+        printf("File cannot be opened");
+        return 0;
+    }
     else{
         unsigned int blockCount = 0;
         int fr_block_sz = 0; 
         int plaintext_len;
         //todo blocksize necessario?
+        char* recvbuf = (char*)malloc(LENGTH + blockSize + hmacSize); 
         unsigned char* plaintext = (unsigned char*)malloc(LENGTH + blockSize + hmacSize);
         unsigned char* recv_hmac = (unsigned char*)malloc(hmacSize);
-        
+        unsigned char* hmac = (unsigned char*)malloc(hmacSize);        
+        if(!recvbuf || !plaintext || !recv_hmac || !hmac){
+            printf("malloc error\n");
+            free(recvbuf);
+            free(plaintext);
+            free(recv_hmac);
+            free(hmac);
+            HMAC_CTX_free(mdctx);
+            EVP_CIPHER_CTX_free(ctx); 
+            fclose(fr);
+            system((string("rm ") + tmp_path).c_str());
+            return 0;
+        }
         
         while(remaining > 0){            
             int write_sz, recv_len;
 
-            /* full fragment 512byte */
-            if(remaining >= LENGTH){    //usual block
+            /* full fragment 512 byte */
+            if(remaining >= LENGTH){    
                 cout << "**fullblock\n";
                 recv_len = LENGTH;
             }
@@ -522,42 +535,76 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_n
 
             /* recv the ciphertext */
             fr_block_sz = recv(sock, recvbuf, recv_len, 0);
-            if(fr_block_sz == -1){
+            if(fr_block_sz == -1 || fr_block_sz != recv_len){
                 perror("Socket issue. Error");
+                free(recvbuf);
+                free(plaintext);
+                free(recv_hmac);
+                free(hmac);
+                HMAC_CTX_free(mdctx);
+                EVP_CIPHER_CTX_free(ctx); 
+                fclose(fr);
+                system((string("rm ") + tmp_path).c_str());
+                return 0;
             }
 
-            cout << "\trecv: " << fr_block_sz << "\n";
             /* debug */
+            cout << "\trecv: " << fr_block_sz << "\n";            
             cout << "Block #"<< blockCount <<"\tremaining "<<remaining - fr_block_sz <<"\tsize: " << fr_block_sz << "/" << LENGTH << " Bytes\n";   
 
             /* decrypt the fragment */
-            if(1 != EVP_DecryptUpdate(ctx, plaintext, &tmp_len, (unsigned char*)recvbuf, fr_block_sz))
+            if(1 != EVP_DecryptUpdate(ctx, plaintext, &tmp_len, (unsigned char*)recvbuf, fr_block_sz)){
                 handleErrors();
+                free(recvbuf);
+                free(plaintext);
+                free(recv_hmac);   
+                free(hmac);             
+                HMAC_CTX_free(mdctx);
+                EVP_CIPHER_CTX_free(ctx);
+                fclose(fr);
+                system((string("rm ") + tmp_path).c_str());
+                return 0;
+            }
             plaintext_len = tmp_len;                
             cout << "plaintext_len: " << plaintext_len << "\n";  
 
 
             /* last block -> finalize and free the context */
             if(nBlocks == (blockCount + 1)){ 
-                if(1 != EVP_DecryptFinal_ex(ctx, plaintext + plaintext_len, &tmp_len)) 
+                if(1 != EVP_DecryptFinal_ex(ctx, plaintext + plaintext_len, &tmp_len)){
                     handleErrors();
+                    free(recvbuf);
+                    free(plaintext);
+                    free(recv_hmac);
+                    free(hmac);
+                    HMAC_CTX_free(mdctx);
+                    EVP_CIPHER_CTX_free(ctx);
+                    fclose(fr);
+                    system((string("rm ") + tmp_path).c_str());
+                    return 0;
+                }
                 plaintext_len += tmp_len;                 
 
                 cout << "tmp_len: " << tmp_len << "\n";
-                cout << "plaintext_len: " << plaintext_len << "\n";                                
-                                  
+                cout << "plaintext_len: " << plaintext_len << "\n";                                                                  
                 cout << "----------finalized\n";
-
 
                 plaintext_len -= hmacSize;
                 void* r = memcpy(recv_hmac, plaintext + plaintext_len, hmacSize);
                 if(recv_hmac != r){
                     perror("memcpy. Error");
+                    free(recvbuf);
+                    free(plaintext);
+                    free(recv_hmac);
+                    free(hmac);
+                    HMAC_CTX_free(mdctx);
+                    EVP_CIPHER_CTX_free(ctx);                    
+                    fclose(fr);
+                    system((string("rm ") + tmp_path).c_str());
                     return 0;
                 }
                 cout <<"!!!*!*!*!*!*RECEIVED HMAC";
                 printHexKey(recv_hmac, hmacSize);
-
             }
             
 
@@ -567,48 +614,62 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_n
             /* digest of plaintext fragment */
             if(1 != HMAC_Update(mdctx, plaintext, plaintext_len)){
                 handleErrors();
+                free(recvbuf);
+                free(plaintext);
+                free(recv_hmac);
+                free(hmac);
+                HMAC_CTX_free(mdctx);
+                EVP_CIPHER_CTX_free(ctx);                    
+                fclose(fr);
+                system((string("rm ") + tmp_path).c_str());
+                return 0;
             }
 
             /* write to file the just decrypted plaintext */            
-            write_sz = fwrite(plaintext, sizeof(char), plaintext_len, fr);
-                
+            write_sz = fwrite(plaintext, sizeof(char), plaintext_len, fr);                
             if(write_sz < plaintext_len){
-                cout << "File write failed.\n";
+                perror("File write failed.\n");
+                free(recvbuf);
+                free(plaintext);
+                free(recv_hmac);                
+                free(hmac);
+                HMAC_CTX_free(mdctx);
+                EVP_CIPHER_CTX_free(ctx);                     
+                fclose(fr);
+                system((string("rm ") + tmp_path).c_str());
+                return 0;
             }
 
             remaining -= fr_block_sz;
             blockCount++;
             printf("remaning %d\n",remaining);
-
-
         }
 
-        unsigned int hmac_len;
-        unsigned char* hmac = (unsigned char*)malloc(32);
-        if(1 != HMAC_Final(mdctx, hmac, &hmac_len))
+        unsigned int hmac_len;     
+        if(1 != HMAC_Final(mdctx, hmac, &hmac_len)){
             handleErrors();
-        printf("hmac len %u\n", hmac_len);
-
-        /* free context */
-        HMAC_CTX_free(mdctx);
-        EVP_CIPHER_CTX_free(ctx);                 
-
+            free(recvbuf);
+            free(plaintext);
+            free(recv_hmac);                
+            free(hmac);
+            HMAC_CTX_free(mdctx);
+            EVP_CIPHER_CTX_free(ctx);                     
+            fclose(fr);
+            system((string("rm ") + tmp_path).c_str());
+            return 0;
+        }
+        printf("hmac len %u\n", hmac_len);               
 
     cout << "HMAC: ";
     printHexKey(hmac, 32);
-
-        /* free memory */
-        free(plaintext);
-        free(recvbuf);
 
         /* equal hmac -> authentic */
         if(compare_hmac_SHA256(hmac, recv_hmac)){
             cout << "\033[1;32mFILE IS AUTHENTIC\033[0m\n";
             string cmd = "mv ";
             cmd = cmd + dir_name + "/.tmp/" + fr_name + " " + dir_name + "/";
-            cout << "cmd: " << cmd << "\n";
             system(cmd.c_str());
-            cout << "\tFile received.\n"; 
+            cout << "\tFile stored.\n"; 
         }
         else{
             cout << "\033[1;31mFILE IS NOT AUTHENTIC\n";
@@ -617,13 +678,25 @@ unsigned int recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_n
             system(cmd.c_str());
             cout << "\tFILE DELETED.\033[0m\n";
         }
+
+        /* free memory */
+        free(plaintext);
+        free(recvbuf);
+        free(recv_hmac);                
+        free(hmac);
+        /* free context */
+        HMAC_CTX_free(mdctx);
+        EVP_CIPHER_CTX_free(ctx);  
+        
+        int ret = fclose(fr);
+        if(ret != 0){
+            perror("Could not close the file.\n");
+            return 0;
+        }
+        return size; 
     }
 
-
-
-    fclose(fr);
-    
-    return size;       
+      
     
 }
 

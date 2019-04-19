@@ -12,7 +12,6 @@ int main(){
         return 1;
 
     while(1){
-respawn:
         //accept client connection
         struct sockaddr_in client;
         int c = sizeof(struct sockaddr_in);
@@ -31,51 +30,55 @@ respawn:
             goto respawn;
         printf("buf: %s\n", buf);
 
-        if(strcmp(buf, "list") == 0 ){            
-            cout << "list\n";
+        if(strcmp(buf, "list") == 0 ){                        
             //generate a file with a list of files (no directories)
             system("ls -p serverDir/ | grep -v / > serverDir/.tmp/list.txt");            
+            
             //append a * to the end of the file (so it's not empty if no file are present)
             system("echo '*' >> serverDir/.tmp/list.txt");
+            
             //send the file containing the list to the client
             unsigned int ret = sendCryptoFileTo(tcp_client, "serverDir/.tmp/list.txt");
+            
             //remove the file
             system("rm serverDir/.tmp/list.txt");
             if(ret == 0)
                 cout << "Error sending the file.\n";            
         }
-        else if(strcmp(buf, "up") == 0 ){
-            cout << "upload\n";
+        else if(strcmp(buf, "up") == 0 ){            
             //receive the name of the file 
             char* fup_name;
             int ret = recvCryptoString(tcp_client, fup_name);            
+            
             //check return and sanitize input filename, to avoid issue in the middle        
-            if(ret == -1 || checkInputString(string(fup_name), filenameMaxLen);)
+            if(ret == -1 || !checkInputString(string(fup_name), filenameMaxLen))
                 goto respawn;
             
             //build the path
             string path = "serverDir/";
             path = path + fup_name;
+
             //receive the file and put to the path
             recvCryptoFileFrom(tcp_client, (const char*)fup_name, "serverDir");
         }
-        else if(strcmp(buf, "down") == 0 ){
-            cout << "download\n";
+        else if(strcmp(buf, "down") == 0 ){            
             //receive the file name
             char* fdw_name;
             int ret = recvCryptoString(tcp_client, fdw_name);
+            
             //check return and sanitize input filename, to avoid issue in the middle        
-            if(ret == -1 || checkInputString(string(fdw_name), filenameMaxLen);)
+            if(ret == -1 || !checkInputString(string(fdw_name), filenameMaxLen))
                 goto respawn;
             
             //build the path
             string path = "serverDir/";
             path = path + fdw_name;
+            
             //send the file to the client
             sendCryptoFileTo(tcp_client, path.c_str());
         }
 
-
+respawn:
         //operation over, close socket
         close(tcp_client);
         cout << "---------------------------------------\n";

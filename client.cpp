@@ -105,65 +105,58 @@ respawn:
             if(client_sock == -1){
                 return 1;
             }
-        }
-        
-        /* i am now connected to the server */
+            /* i am now connected to the server */
 
-        /* list operation */
-        if(strcmp(opcode.c_str(), "list") == 0 ){
-            //send the opcode
+            //send to the server the opcode
             int len = sendCryptoString(client_sock, opcode.c_str());
             if(len == -1)
                 goto respawn;
-            
-            //receive file list as .txt
-            recvCryptoFileFrom(client_sock, "list.txt", "clientDir/.list");        
-            cout << "File list:\n";
-            //remove final line, which is just a * and cat the rest
-            //allow you to send the file even if the directory is empty
-            system("cat clientDir/.list/list.txt | grep -v \"\\*\"");
-            //remove the file
-            system("rm clientDir/.list/list.txt");
-            //operation done, close socket
+
+            /* list operation */
+            if(strcmp(opcode.c_str(), "list") == 0 ){                
+                //receive file list as .txt
+                recvCryptoFileFrom(client_sock, "list.txt", "clientDir/.list");        
+                cout << "File list:\n";
+
+                //Remove the final line, which is just a * and cat the rest
+                //allow you to send the file even if the directory is empty
+                system("cat clientDir/.list/list.txt | grep -v \"\\*\"");
+                
+                //remove the file
+                system("rm clientDir/.list/list.txt");                
+            }
+            /* upload operation */
+            else if(strcmp(opcode.c_str(), "up") == 0 ){
+                //send the name of the file that you are going to upload            
+                string fup_name = fname;
+                sendCryptoString(client_sock, fup_name.c_str());
+                
+                //build the path of the file
+                string path = "clientDir/";
+                path = path + fup_name;
+
+                //get the file locally and send it
+                sendCryptoFileTo(client_sock, path.c_str());
+            }
+            /* download operation */
+            else if(strcmp(opcode.c_str(), "down") == 0 ){    
+                //send the name of the file that you are going to download
+                string fdw_name = fname;
+                sendCryptoString(client_sock, fdw_name.c_str());
+
+                //build the path of the file
+                string path = "clientDir/" + fdw_name;            
+
+                //receive the file and put to the path
+                unsigned int file_len = recvCryptoFileFrom(client_sock, fdw_name.c_str(), "clientDir");
+            }   
+            //operation done, close the server socket
             close(client_sock);
         }
-        /* upload operation */
-        else if(strcmp(opcode.c_str(), "up") == 0 ){
-            //send the op code
-            int len = sendCryptoString(client_sock, opcode.c_str());
-            //send the name of the file that you are going to upload            
-            string fup_name = fname;
-            sendCryptoString(client_sock, fup_name.c_str());
-            
-            //build the path of the file
-            string path = "clientDir/";
-            path = path + fup_name;
-            //get the file locally and send it
-            sendCryptoFileTo(client_sock, path.c_str());
-
-            //operation done, close socket
-            close(client_sock);
-        }
-        /* download operation */
-        else if(strcmp(opcode.c_str(), "down") == 0 ){    
-            //send the op code
-            int len = sendCryptoString(client_sock, opcode.c_str());
-            //send the name of the file that you are going to download
-            string fdw_name = fname;
-            sendCryptoString(client_sock, fdw_name.c_str());    
-            //build the path of the file
-            string path = "clientDir/" + fdw_name;            
-            //receive the file and put to the path
-            unsigned int file_len = recvCryptoFileFrom(client_sock, fdw_name.c_str(), "clientDir");
-
-            //operation done, close socket
-            close(client_sock);
-        }        
         /* bad command issued */
-        else{
+        else{ 
             cout << "Command not found! Try with:\n";
             commands_available();
-            goto respawn;
         }
 
 
