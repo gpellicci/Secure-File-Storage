@@ -120,13 +120,15 @@ respawn:
             /* list operation */
             if(strcmp(opcode.c_str(), "list") == 0 ){                
                 //receive file list as .txt
-                recvCryptoFileFrom(client_sock, "list.txt", "clientDir/.list");        
-                cout << "File list:\n";
-
-                //Remove the final line, which is just a * and cat the rest
-                //allow you to send the file even if the directory is empty
-                system("cat clientDir/.list/list.txt | grep -v \"\\*\"");
-                
+                unsigned int ret;
+                ret = recvCryptoFileFrom(client_sock, "list.txt", "clientDir/.list");        
+                if(ret != 0){
+                    cout << "File list:\n";
+                    //Remove the final line, which is just a * and cat the rest
+                    //allow you to send the file even if the directory is empty
+                    system("cat clientDir/.list/list.txt | grep -v \"\\*\"");
+                }
+        
                 //remove the file
                 system("rm clientDir/.list/list.txt");                
             }
@@ -155,7 +157,8 @@ respawn:
                 string path = "clientDir/" + fdw_name;            
 
                 //receive the file and put to the path
-                unsigned int file_len = recvCryptoFileFrom(client_sock, fdw_name.c_str(), "clientDir");
+                unsigned int file_len;
+                file_len = recvCryptoFileFrom(client_sock, fdw_name.c_str(), "clientDir");
             }   
             //operation done, close the server socket
             close(client_sock);
