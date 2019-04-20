@@ -145,7 +145,7 @@ uint32_t recvCryptoSize(int sock){
         printf("\033[1;32mSIZE is AUTHENTIC\033[0m\n");    
     }
     else{        
-        printf("\033[1;31mFILE IS NOT AUTHENTIC\033[0m\n");
+        printf("\033[1;31mSIZE IS NOT AUTHENTIC\033[0m\n");
         len = 0;    //make the return 0
     }
     free(ciphertext);
@@ -164,27 +164,37 @@ uint32_t recvCryptoSize(int sock){
 
 
 int sendCryptoString(int sock, const char* buf){
-    
-    int buf_len = strlen(buf);
+    unsigned int buf_len = strlen(buf);
 
-    unsigned char* ciphertext = (unsigned char *) malloc(buf_len + 1 + blockSize);
-    unsigned char* plaintext = (unsigned char*)malloc(buf_len +1);
+    unsigned char* ciphertext = (unsigned char *) malloc(buf_len + 1 + blockSize + hmacSize);
+    unsigned char* plaintext = (unsigned char*)malloc(buf_len + 1 + hmacSize);
     if(!ciphertext || !plaintext){
         free(ciphertext);
         free(plaintext);
         return -1;
     }
 
+    /* copy the buffer into plaintext */
     strncpy((char*)plaintext, buf, buf_len);
-    plaintext[buf_len] = '\0';
+    //plaintext[buf_len] = '\0';
+    unsigned int plaintext_len = buf_len + hmacSize;
 
-    unsigned int plaintext_len = strlen((char*)plaintext);
+    /* compute hmac of the string (except null terminator) */
+    int ret = hmac_SHA256((char*)plaintext, buf_len, key_hmac, plaintext+buf_len);
+    if(ret != hmacSize){
+        perror("ERRORE:\n");
+        free(ciphertext);
+        free(plaintext);
+        return -1;
+    }
 
-    //printf("----------------- %s -----------------\n", (char*)plaintext);
+    cout << "STRING'S hmac     : ";
+    printHex(plaintext+buf_len, 32);
+
 
     unsigned int decryptedtext_len, ciphertext_len;
     // Encrypt utility function
-    ciphertext_len = encrypt ((unsigned char*)buf, plaintext_len, key, NULL, ciphertext);
+    ciphertext_len = encrypt ((unsigned char*)plaintext, plaintext_len, key, NULL, ciphertext);
     if(ciphertext_len == -1){
         free(ciphertext);
         free(plaintext);
@@ -199,6 +209,7 @@ int sendCryptoString(int sock, const char* buf){
         return -1;
     }    
     printf("Sending string...\n");
+    plaintext[buf_len] = '\0';
     printf("\033[1;33m[%uBytes]Plain: \033[31;47m%s\033[0m\n", plaintext_len, (char*)plaintext);   
 
 //printf("[%uBytes]ciphertext is:\n", ciphertext_len);
@@ -212,9 +223,7 @@ int sendCryptoString(int sock, const char* buf){
         free(plaintext);
         return -1;
     }
-    //sendl(sock, (const char*)ciphertext);
     printf("\tSTRING sent.\n");
-    //printf("--------------------------------------\n");
     
     free(ciphertext);
     free(plaintext);
@@ -225,7 +234,7 @@ int sendCryptoString(int sock, const char* buf){
 
 int recvCryptoString(int sock, char*& buf){
     unsigned int ciphertext_len = recvCryptoSize(sock);
-    if(ciphertext_len == 0){
+    if(ciphertext_len < hmacSize + 1){  //if someone change the string size. At least the hmac must exists
         perror("ERROR string\n");
         return -1;
     }
@@ -259,11 +268,48 @@ int recvCryptoString(int sock, char*& buf){
         free(decryptedtext);
         return -1;
     }
-    // Add a NULL terminator. We are expecting printable text
-    decryptedtext[decryptedtext_len] = '\0';
-    printf("\033[1;33m[%lu]Decrypted String: \033[31;47m%s\033[0m\n", strlen((char*)decryptedtext), (char*)decryptedtext);
 
+    unsigned char* hmac = (unsigned char*)malloc(hmacSize); 
+    unsigned char* recv_hmac = (unsigned char*)malloc(hmacSize); 
+    //if()
+    memcpy(recv_hmac, decryptedtext + (decryptedtext_len - hmacSize), hmacSize);
+    //if()
+
+    /* compute hmac of the string (except null terminator) */
+    int ret = hmac_SHA256((char*)decryptedtext, (decryptedtext_len - hmacSize), key_hmac, hmac);
+    if(ret != hmacSize){
+        perror("ERRORE:\n");
+        free(ciphertext);
+        return -1;
+    }
+
+    // Add a NULL terminator. We are expecting printable text
+    decryptedtext_len = decryptedtext_len - hmacSize;
+    decryptedtext[decryptedtext_len] = '\0';
+
+
+    cout << "STRING'S hmac     : ";
+    printHex(hmac, 32);
+    cout << "STRING'S recv_hmac: ";
+    printHex(recv_hmac, 32);
+
+    /* verify hmac */
+    if(compare_hmac_SHA256(hmac, recv_hmac)){
+        printf("\033[1;32mSTRING is AUTHENTIC\033[0m\n");    
+    }
+    else{        
+        printf("\033[1;31mSTRING IS NOT AUTHENTIC\033[0m\n");
+        decryptedtext_len = -1;    //make the return 0
+    }
+
+    printf("\033[1;33m[%lu]Decrypted String: \033[31;47m%s\033[0m\n", strlen((char*)decryptedtext), (char*)decryptedtext);
     buf = (char*)decryptedtext;
+
+
+    free(ciphertext);
+    //free(decryptedtext);
+    free(hmac);
+    free(recv_hmac);
 
     return decryptedtext_len;
 }
