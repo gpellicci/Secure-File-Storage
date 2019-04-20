@@ -209,6 +209,8 @@ int sendCryptoString(int sock, const char* buf){
         return -1;
     }    
     printf("Sending string...\n");
+
+    /*debug */
     plaintext[buf_len] = '\0';
     printf("\033[1;33m[%uBytes]Plain: \033[31;47m%s\033[0m\n", plaintext_len, (char*)plaintext);   
 
@@ -271,19 +273,34 @@ int recvCryptoString(int sock, char*& buf){
 
     unsigned char* hmac = (unsigned char*)malloc(hmacSize); 
     unsigned char* recv_hmac = (unsigned char*)malloc(hmacSize); 
-    //if()
-    memcpy(recv_hmac, decryptedtext + (decryptedtext_len - hmacSize), hmacSize);
-    //if()
-
-    /* compute hmac of the string (except null terminator) */
-    int ret = hmac_SHA256((char*)decryptedtext, (decryptedtext_len - hmacSize), key_hmac, hmac);
-    if(ret != hmacSize){
-        perror("ERRORE:\n");
+    if(!hmac || !recv_hmac){
+        perror("malloc error\n");
         free(ciphertext);
+        free(decryptedtext);
+        free(hmac);
+        free(recv_hmac);
+        return -1;
+    }
+    void* r = memcpy(recv_hmac, decryptedtext + (decryptedtext_len - hmacSize), hmacSize);
+    if(r != recv_hmac){        
+        free(ciphertext);
+        free(decryptedtext);
+        free(hmac);
+        free(recv_hmac);
         return -1;
     }
 
-    // Add a NULL terminator. We are expecting printable text
+    /* compute hmac of the string (except null terminator) */
+    int ret = hmac_SHA256((char*)decryptedtext, (decryptedtext_len - hmacSize), key_hmac, hmac);
+    if(ret != hmacSize){        
+        free(ciphertext);
+        free(decryptedtext);
+        free(hmac);
+        free(recv_hmac);
+        return -1;
+    }
+
+    // Resize and add a NULL terminator. We are expecting printable text
     decryptedtext_len = decryptedtext_len - hmacSize;
     decryptedtext[decryptedtext_len] = '\0';
 
@@ -305,9 +322,8 @@ int recvCryptoString(int sock, char*& buf){
     printf("\033[1;33m[%lu]Decrypted String: \033[31;47m%s\033[0m\n", strlen((char*)decryptedtext), (char*)decryptedtext);
     buf = (char*)decryptedtext;
 
-
+    
     free(ciphertext);
-    //free(decryptedtext);
     free(hmac);
     free(recv_hmac);
 
