@@ -152,9 +152,7 @@ respawn:
                 //send the name of the file that you are going to download
                 string fdw_name = fname;
                 sendCryptoString(client_sock, fdw_name.c_str());
-                printf("Filename issued\n\n");
-                //build the path of the file
-                string path = "clientDir/" + fdw_name;            
+                printf("Filename issued\n\n");           
 
                 //receive the file and put to the path
                 unsigned int file_len;

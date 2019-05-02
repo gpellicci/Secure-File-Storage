@@ -25,8 +25,10 @@ int main(){
         /* get opcode */
         char* opcode;
         int len = recvCryptoString(tcp_client, opcode);
-        if(len == -1)
+        if(len == -1 || !checkInputString(string(opcode), cmdMaxLen) ){
+            opcode = (char*)malloc(1);      //todo, malloc(1) per non far fallire la free() a respawn:
             goto respawn;
+        }
         printf("**OPERATION: %s\n\n", opcode);
 
         if(strcmp(opcode, "list") == 0 ){                        

@@ -1,6 +1,6 @@
-const long long int maxFileSize = (1ULL << 32);
+const uint64_t maxFileSize = (1ULL << 32);
 
-bool getFileSize( std::string path, unsigned int &size){
+bool getFileSize( std::string path, uint64_t &size){
 	//in case of error:
 		//size = 0
 		//return false;
@@ -33,7 +33,7 @@ bool getFileSize( std::string path, unsigned int &size){
 		return false;
 	}
 
-	size = (unsigned int)tmp;
+	size = (uint64_t)tmp;
 
 	// close file
 	ret = fclose( pFile );

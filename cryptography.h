@@ -10,7 +10,6 @@
 void handleErrors(void)
 {
   perror("Error crypto\n");
-  //exit(1);
 }
 
 //todo 4 encrypt / decrypt non sono corrette
