@@ -63,7 +63,7 @@ uint64_t recvCryptoSize(int sock){
     if(!ciphertext || !hmac || !recv_hmac || !decryptedtext)
         goto recvCryptoSizeQuit;
 
-    ret = recv(sock, ciphertext, ciphertext_len, 0);    
+    ret = recv(sock, ciphertext, ciphertext_len, MSG_WAITALL);    
     if(ret < 0 || ret != ciphertext_len)   //error || not all bytes received
         goto recvCryptoSizeQuit;
 
@@ -187,7 +187,7 @@ int recvCryptoString(int sock, char*& buf){
     if(!ciphertext || !decryptedtext)
         goto recvCryptoStringQuit_2;
 
-    ret = recv(sock, ciphertext, ciphertext_len, 0); 
+    ret = recv(sock, ciphertext, ciphertext_len, MSG_WAITALL); 
     if(ret < 0 || ret != ciphertext_len)        
         goto recvCryptoStringQuit_2;
 
@@ -478,7 +478,7 @@ uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name)
                 recv_len = remaining;
 
             /* recv the fragment ciphertext */
-            fr_block_sz = recv(sock, recvbuf, recv_len, 0);
+            fr_block_sz = recv(sock, recvbuf, recv_len, MSG_WAITALL);
             if(fr_block_sz == -1 || fr_block_sz != recv_len)
                 goto recvCryptoFileFromQuit_1;
 
