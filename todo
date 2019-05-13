@@ -30,3 +30,7 @@ Dobbiamo sapere se la getFileSize ha avuto problemi oppure no. Inoltre devo cono
 11_ gestione errori e free(), vanno messi tutti e ovunque?
 ****11 done
 
+12_ verificare un certificato non e sufficiente, bisogna anche controllare il subject name -> stampare a schermo
+
+13_ nome del client hardcoded o piccola tabella di utenti permessi nel sistema (elenco di nomi da cercare nel subject name del cetificato)
+
