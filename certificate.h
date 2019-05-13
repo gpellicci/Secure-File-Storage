@@ -1,8 +1,9 @@
 #include <openssl/x509.h>
 #include <openssl/x509_vfy.h>
+#include <openssl/pem.h>
 using namespace std;
 
-bool readCertificate(String filename, X509* &cert){
+bool readCertificate(string filename, X509* &cert){
 	FILE* file = fopen(filename.c_str(), "r");
 	if(!file)
 		return false;
@@ -15,7 +16,7 @@ bool readCertificate(String filename, X509* &cert){
 	return true;
 }
 
-bool readCrl(String filename, X509_CRL* &crl){
+bool readCrl(string filename, X509_CRL* &crl){
 	FILE* file = fopen("Papere_crl.pem", "r");
 	if(!file)
 		return false;
@@ -28,7 +29,7 @@ bool readCrl(String filename, X509_CRL* &crl){
 	return true;
 }
 
-bool buildStore(X509* ca_cert, X590_CRL* crl, X509_STORE* &store){
+bool buildStore(X509* ca_cert, X509_CRL* crl, X509_STORE*& store){
 	store = X509_STORE_new();
 	if( !store )
 		return false;
@@ -42,11 +43,11 @@ bool buildStore(X509* ca_cert, X590_CRL* crl, X509_STORE* &store){
 	return true;
 }
 
-bool verifyCertificate(X509* cert){
+bool verifyCertificate(X509_STORE* store, X509* cert){
 	X509_STORE_CTX* ctx = X509_STORE_CTX_new();
 	if( !ctx )
 		return false;
-	if( !X509_STORE_CTX_inqit(ctx, store, cert, NULL) )
+	if( !X509_STORE_CTX_init(ctx, store, cert, NULL) )
 		return false;
 	int ret = X509_verify_cert(ctx);
 	X509_STORE_CTX_free(ctx);

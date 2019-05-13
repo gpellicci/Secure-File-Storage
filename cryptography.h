@@ -6,6 +6,8 @@
 
 #include "keygen.h"
 
+#include "certificate.h"
+
 
 void handleErrors(void)
 {
