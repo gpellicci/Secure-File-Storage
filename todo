@@ -1,36 +1,32 @@
-
 1_ aggiungere file: client.h e server.h dove mettere costanti e funzioni di utilità
-
 ****1 done
 
 2_ aggiungere funzioni randomness
-
 ****2 done
 
 3_ aggiustare HMAC, ciclare solo sull'update e non so init e final
-
 ****3 done
 
 4_ encrypt/decrypt deve essere fatta per bene: init(una sola volta), update ciclica ad ogni frammento, update+final all'ultimo blocco
-
 ****4 done
 
 5_ getFileSize(): ftell ritorna -1 in caso di errori, la nostra funzione ritorna un unsigned int per forza. O mettiamo un ritorno bool e size la ritorniamo per riferimento (dopo averla passata come argomento) oppure boh
 Dobbiamo sapere se la getFileSize ha avuto problemi oppure no. Inoltre devo conoscere la dimensione del file che per forza `e unsigned int (deve arrivare fino a 2^32 4GB) ..... fammi sapere cosa ne pensi
-
 ****5 done -> ritorno bool, modifico per riferimento size
 
 6_ unificare checkStrSize e checkAllowedChars in unica funzione
-
 ****6 done -> function checkInputString()
 
 7_ dopo diffie hellman non usare la chiave condivisa come chiave simmetrica. Usare come chiave H(sharedKey), se troppo lunga si puo troncare l'hash
 
 8_ controllare client.cpp da "list" in poi
+****8 done
 
 9_ aggiungere hmac a stringhe e size
+****9 done
 
 10_ replay attack esiste se riapro la connessione e scambio chiavi ogni volta? (chiedere prof)
 
-11_ gestione errori e free(), vanno messi tutti e ovunque? (chiedere prof)
+11_ gestione errori e free(), vanno messi tutti e ovunque?
+****11 done
 
