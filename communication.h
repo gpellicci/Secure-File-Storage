@@ -18,13 +18,14 @@ bool sendCryptoSize(int sock, uint64_t len){
     int plaintext_len, ciphertext_len, ret;
     unsigned char* plaintext = (unsigned char*)malloc(sizeof(uint64_t) + hmacSize);
     unsigned char* ciphertext = (unsigned char*)malloc(blockSize + hmacSize); 
-    unsigned char* iv;
-    if(!plaintext || !ciphertext)
-        goto sendCryptoSizeQuit;
-
+    unsigned char* iv = NULL;
     //generate the IV at random
     if(!keyGen(iv, blockSize)) 
         goto sendCryptoSizeQuit;
+
+    if(!plaintext || !ciphertext)
+        goto sendCryptoSizeQuit;
+
 
     r = memcpy(plaintext, &lmsg, sizeof(uint64_t));
     if(!r)
@@ -133,9 +134,12 @@ int sendCryptoString(int sock, const char* buf){
     unsigned int buf_len = strlen(buf);
     unsigned char* ciphertext = (unsigned char *) malloc(buf_len + 1 + blockSize + hmacSize);
     unsigned char* plaintext = (unsigned char*)malloc(buf_len + 1 + hmacSize);
+    unsigned char* iv = NULL;
     unsigned int plaintext_len, decryptedtext_len, ciphertext_len;
     int ret;
-
+    //generate the IV at random
+    if(!keyGen(iv, blockSize)) 
+        goto sendCryptoStringQuit;
     if(!ciphertext || !plaintext)
         goto sendCryptoStringQuit;
 
@@ -152,7 +156,7 @@ int sendCryptoString(int sock, const char* buf){
     //printHex(plaintext+buf_len, 32);
 
     //encrypt string|hmac(string)
-    ciphertext_len = encrypt ((unsigned char*)plaintext, plaintext_len, key, NULL, ciphertext);
+    ciphertext_len = encrypt ((unsigned char*)plaintext, plaintext_len, key, iv, ciphertext);
     if(ciphertext_len == -1)
         goto sendCryptoStringQuit;
 
@@ -168,6 +172,11 @@ int sendCryptoString(int sock, const char* buf){
 //printf("[%uBytes]ciphertext is:\n", ciphertext_len);
 //  _dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
 
+    // send IV 
+    ret = send(sock, iv, blockSize, 0);
+    if(ret < 0 || ret != blockSize)
+        goto sendCryptoStringQuit;
+
     // send encrypted string  
     ret = send(sock, ciphertext, ciphertext_len, 0);
     if(ret < 0 || ret != ciphertext_len)
@@ -177,12 +186,14 @@ int sendCryptoString(int sock, const char* buf){
 
     free(ciphertext);
     free(plaintext);
+    free(iv);
     return ciphertext_len;
 
 /* error handling */
 sendCryptoStringQuit:
     free(ciphertext);
     free(plaintext);
+    free(iv);
     perror("ERROR string");
     return -1;
 
@@ -190,6 +201,7 @@ sendCryptoStringQuit:
 
 int recvCryptoString(int sock, char*& buf){
     unsigned char *ciphertext, *decryptedtext, *hmac, *recv_hmac;
+    unsigned char* iv = NULL;
     uint64_t ciphertext_len;
     int ret, decryptedtext_len;
     void* r;
@@ -204,7 +216,13 @@ int recvCryptoString(int sock, char*& buf){
 
     ciphertext = (unsigned char*)malloc(ciphertext_len);
     decryptedtext = (unsigned char*)malloc(ciphertext_len);
-    if(!ciphertext || !decryptedtext)
+    iv = (unsigned char*)malloc(blockSize);
+    if(!ciphertext || !decryptedtext || !iv)
+        goto recvCryptoStringQuit_2;
+
+    // receive IV 
+    ret = recv(sock, iv, blockSize, MSG_WAITALL);    
+    if(ret < 0 || ret != blockSize)   //error || not all bytes received
         goto recvCryptoStringQuit_2;
 
     //receive the ciphertext
@@ -216,7 +234,7 @@ int recvCryptoString(int sock, char*& buf){
 //BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
 
     // Decrypt the ciphertext
-    decryptedtext_len = decrypt(ciphertext, ciphertext_len, key, NULL, decryptedtext);
+    decryptedtext_len = decrypt(ciphertext, ciphertext_len, key, iv, decryptedtext);
     if(decryptedtext_len == -1)
         goto recvCryptoStringQuit_2;
 
@@ -262,6 +280,7 @@ int recvCryptoString(int sock, char*& buf){
     free(ciphertext);
     free(hmac);
     free(recv_hmac);
+    free(iv);
     return decryptedtext_len;
 
 /* error handling */
@@ -271,6 +290,7 @@ recvCryptoStringQuit_1:
 recvCryptoStringQuit_2:
     free(ciphertext);
     free(decryptedtext);
+    free(iv);
     perror("ERROR string\n");
     return -1;
     
@@ -281,6 +301,7 @@ recvCryptoStringQuit_2:
 uint64_t sendCryptoFileTo(int sock, const char* fs_name){    
     FILE *fs = NULL;
     void* r;
+    int ret;
     string path = fs_name;
 
     // Compute file size 
@@ -301,15 +322,19 @@ uint64_t sendCryptoFileTo(int sock, const char* fs_name){
     
     /*encryption and hmac allocations */
     EVP_CIPHER_CTX *ctx = NULL;
-    unsigned char* iv = NULL;
-    int tmp_len;
     HMAC_CTX* mdctx = NULL;
+    int tmp_len;
+    unsigned char* iv = NULL;
     /* malloc all buffers */
     unsigned char* sdbuf = (unsigned char*)malloc(LENGTH + hmacSize); /* blockSize + hmacSize */
     unsigned char* ciphertext = (unsigned char*)malloc(LENGTH + blockSize + hmacSize); 
     unsigned char* hmac = (unsigned char*)malloc(hmacSize);
     if(!sdbuf || !ciphertext || !hmac)
         goto sendCryptoFileToQuit_1;
+    //generate the IV at random
+    if(!keyGen(iv, blockSize)) 
+        goto sendCryptoFileToQuit_1;
+
 
 // ENCRYPTION init
     /* Create and initialize the context */
@@ -327,6 +352,13 @@ uint64_t sendCryptoFileTo(int sock, const char* fs_name){
     if(1 != HMAC_Init_ex(mdctx, key_hmac, key_hmac_size, EVP_sha256(), NULL))
         goto sendCryptoFileToQuit_1;
 
+
+
+    // send IV 
+    ret = send(sock, iv, blockSize, 0);
+    if(ret < 0 || ret != blockSize)
+        goto sendCryptoFileToQuit_1;
+
     cout << "Sending file...\n";
     //open the file
     fs = fopen(fs_name, "r");
@@ -336,7 +368,7 @@ uint64_t sendCryptoFileTo(int sock, const char* fs_name){
     }
     else{
         memset(sdbuf, 0, LENGTH);
-        int fs_block_sz, ciphertext_len, ret;
+        int fs_block_sz, ciphertext_len;
         int blockCount = 0;        
         unsigned int hmac_len;
         //read fragment of file
@@ -393,6 +425,7 @@ uint64_t sendCryptoFileTo(int sock, const char* fs_name){
         free(sdbuf);
         free(ciphertext);
         free(hmac);
+        free(iv);
         HMAC_CTX_free(mdctx);
         EVP_CIPHER_CTX_free(ctx);
         cout << "\tFile sent\n";
@@ -411,6 +444,7 @@ sendCryptoFileToQuit_1:
     free(sdbuf);
     free(ciphertext);
     free(hmac);
+    free(iv);
     HMAC_CTX_free(mdctx);
     EVP_CIPHER_CTX_free(ctx);
     return 0;
@@ -421,8 +455,7 @@ sendCryptoFileToQuit_1:
 uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name){    
     FILE *fr = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
-    unsigned char* iv = NULL;
-    int tmp_len;
+    int tmp_len, ret;
     HMAC_CTX* mdctx = NULL;
 
     // path strings to handle hmac verification 
@@ -455,8 +488,14 @@ uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name)
     char* recvbuf = (char*)malloc(LENGTH + blockSize + hmacSize); 
     unsigned char* plaintext = (unsigned char*)malloc(LENGTH + blockSize + hmacSize);
     unsigned char* recv_hmac = (unsigned char*)malloc(hmacSize);
-    unsigned char* hmac = (unsigned char*)malloc(hmacSize);        
-    if(!recvbuf || !plaintext || !recv_hmac || !hmac)
+    unsigned char* hmac = (unsigned char*)malloc(hmacSize); 
+    unsigned char* iv = (unsigned char*)malloc(blockSize);       
+    if(!recvbuf || !plaintext || !recv_hmac || !hmac || !iv)
+        goto recvCryptoFileFromQuit_1;
+
+    // receive IV 
+    ret = recv(sock, iv, blockSize, MSG_WAITALL);    
+    if(ret < 0 || ret != blockSize)   //error || not all bytes received
         goto recvCryptoFileFromQuit_1;
 
 // ENCRYPTION
@@ -475,7 +514,6 @@ uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name)
         goto recvCryptoFileFromQuit_1;
     if(1 != HMAC_Init_ex(mdctx, key_hmac, hmacSize, EVP_sha256(), NULL))
         goto recvCryptoFileFromQuit_1;
-
 
     cout << "Receiving file...\n";
     fr = fopen(tmp_path.c_str(), "w");
@@ -591,6 +629,7 @@ recvCryptoFileFromQuit_1:
     free(plaintext);
     free(recv_hmac);
     free(hmac);
+    free(iv);
     HMAC_CTX_free(mdctx);
     EVP_CIPHER_CTX_free(ctx); 
     system((string("rm ") + tmp_path).c_str());
