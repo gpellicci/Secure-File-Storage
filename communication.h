@@ -9,8 +9,10 @@ const int hmacSize = EVP_MD_size(EVP_sha256());
 const unsigned int key_hmac_size = 32;
 
 
-unsigned char *key = (unsigned char *)"01234567012345670123456701234567";
-unsigned char *key_hmac = (unsigned char*)"012345678901234567890123456789123";
+//unsigned char *key = (unsigned char *)"01234567012345670123456701234567";
+//unsigned char *key_hmac = (unsigned char*)"012345678901234567890123456789123";
+unsigned char *key = (unsigned char*)malloc(EVP_CIPHER_key_length(EVP_aes_256_cbc()));
+unsigned char *key_hmac = (unsigned char*)malloc(EVP_CIPHER_key_length(EVP_aes_256_cbc()));
 
 bool sendCryptoSize(int sock, uint64_t len){
     uint64_t lmsg = htobe64(len);   //convert length to network byte order (big endian)
@@ -37,7 +39,7 @@ bool sendCryptoSize(int sock, uint64_t len){
 
     plaintext_len = sizeof(uint64_t) + hmacSize;
     //encrypt the size|hmac(size)
-    ciphertext_len = encrypt(plaintext, plaintext_len, key, iv, ciphertext);
+    ciphertext_len = encrypt(plaintext, plaintext_len, key, iv, ciphertext, EVP_aes_256_cbc());
     if(ciphertext_len == -1)
         goto sendCryptoSizeQuit;
 
@@ -86,7 +88,7 @@ uint64_t recvCryptoSize(int sock){
     if(ret < 0 || ret != ciphertext_len)   //error || not all bytes received
         goto recvCryptoSizeQuit;
     //decrypt ciphertext
-    decryptedtext_len = decrypt(ciphertext, ciphertext_len, key, iv, decryptedtext);
+    decryptedtext_len = decrypt(ciphertext, ciphertext_len, key, iv, decryptedtext, EVP_aes_256_cbc());
     if(decryptedtext_len == -1)
         goto recvCryptoSizeQuit;
     //compute hmac of the plaintext
@@ -156,7 +158,7 @@ int sendCryptoString(int sock, const char* buf){
     //printHex(plaintext+buf_len, 32);
 
     //encrypt string|hmac(string)
-    ciphertext_len = encrypt ((unsigned char*)plaintext, plaintext_len, key, iv, ciphertext);
+    ciphertext_len = encrypt((unsigned char*)plaintext, plaintext_len, key, iv, ciphertext, EVP_aes_256_cbc());
     if(ciphertext_len == -1)
         goto sendCryptoStringQuit;
 
@@ -234,7 +236,7 @@ int recvCryptoString(int sock, char*& buf){
 //BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
 
     // Decrypt the ciphertext
-    decryptedtext_len = decrypt(ciphertext, ciphertext_len, key, iv, decryptedtext);
+    decryptedtext_len = decrypt(ciphertext, ciphertext_len, key, iv, decryptedtext, EVP_aes_256_cbc());
     if(decryptedtext_len == -1)
         goto recvCryptoStringQuit_2;
 

@@ -1,6 +1,7 @@
 #include "server.h"
 #include "communication.h"
 #include "checkInputs.h"
+#include "sts.h"
 
 using namespace std; 
 
@@ -21,6 +22,10 @@ int main(){
                 return 1;
             }
         printf("Accepted connection from %s:%d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+
+        //KEY EXCHANGE Station-to-Station
+        stsResponse(tcp_client);
+
 
         /* get opcode */
         char* opcode;

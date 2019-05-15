@@ -1,6 +1,7 @@
 #include "client.h"
 #include "communication.h"
 #include "checkInputs.h"
+#include "sts.h"
 
 using namespace std;
 
@@ -26,7 +27,6 @@ respawn:
 
         // prompt
         cout << "\n>> ";
-
         //get op code 
         string opcode;
         cin >> opcode;   
@@ -109,6 +109,10 @@ respawn:
             if(client_sock == -1){
                 return 1;
             }
+
+            //KEY EXCHANGE Station-to-Station
+            stsInitiator(client_sock);
+
             /* i am now connected to the server */
 
             //send to the server the opcode

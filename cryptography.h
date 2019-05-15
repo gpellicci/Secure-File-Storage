@@ -18,7 +18,7 @@ void handleErrors(void)
 //dobbiamo fare update ad ogni ciclo sui blocchi e final solo all'ultimo
 
 int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
-  unsigned char *iv, unsigned char *ciphertext)
+  unsigned char *iv, unsigned char *ciphertext, const EVP_CIPHER* type)
 {
   EVP_CIPHER_CTX *ctx;
 
@@ -37,7 +37,7 @@ int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
    * In this example we are using 256 bit AES (i.e. a 256 bit key). The
    * IV size for *most* modes is the same as the block size. For AES this
    * is 128 bits */
-  if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)){    
+  if(1 != EVP_EncryptInit_ex(ctx, type, NULL, key, iv)){    
     handleErrors();
     EVP_CIPHER_CTX_free(ctx);
     return -1;
@@ -70,7 +70,7 @@ int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
 }
 
 int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
-  unsigned char *iv, unsigned char *plaintext){
+  unsigned char *iv, unsigned char *plaintext, const EVP_CIPHER* type){
   EVP_CIPHER_CTX *ctx;
 
   int len;
@@ -88,7 +88,7 @@ int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
    * In this example we are using 256 bit AES (i.e. a 256 bit key). The
    * IV size for *most* modes is the same as the block size. For AES this
    * is 128 bits */
-  if(1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)){
+  if(1 != EVP_DecryptInit_ex(ctx, type, NULL, key, iv)){
     handleErrors();
     EVP_CIPHER_CTX_free(ctx);
     return -1;
@@ -130,6 +130,22 @@ void SHA256(char* msg, unsigned int len, unsigned char*& digest){
   EVP_DigestFinal(ctx, digest, &digestLen);
   EVP_MD_CTX_free(ctx);
 
+}
+
+unsigned int SHA512(unsigned char* msg, unsigned int len, unsigned char*& digest){
+    unsigned int digestLen = 0;
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    if(1 != EVP_DigestInit(ctx, EVP_sha512()))
+        goto sha512end;
+    if(1 != EVP_DigestUpdate(ctx, msg, len))
+        goto sha512end;
+    if(1 != EVP_DigestFinal(ctx, digest, &digestLen)){
+        digestLen = 0;
+        goto sha512end;
+    }
+sha512end:
+  EVP_MD_CTX_free(ctx);
+  return digestLen;
 }
 
 
@@ -204,4 +220,29 @@ void fileHmac(const char* fname){
     HMAC_Final(mdctx, md, &md_len);
     printf("HMAC: ");
     printHexKey(md, md_len);
+}
+
+unsigned int sign(unsigned char* buf, unsigned int buf_len, EVP_PKEY* prvkey, unsigned char*& signature){
+    int ret;
+    unsigned int signature_len;
+    signature = (unsigned char*)malloc(EVP_PKEY_size(prvkey));
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    EVP_SignInit(ctx, EVP_sha256());
+    EVP_SignUpdate(ctx, buf, buf_len);
+    EVP_SignFinal(ctx, signature, &signature_len, prvkey);
+    EVP_MD_CTX_free(ctx);
+    return signature_len;
+}
+
+int verifySignature(unsigned char* msg, int msg_len, unsigned char* signature, int signature_len, EVP_PKEY* pubkey){
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    EVP_VerifyInit(ctx, EVP_sha256());
+    EVP_VerifyUpdate(ctx, msg, msg_len);
+    int ret = EVP_VerifyFinal(ctx, signature, signature_len, pubkey);
+    EVP_MD_CTX_free(ctx);
+    if(ret != 1)
+        return false;
+    else
+        return true;
+
 }
