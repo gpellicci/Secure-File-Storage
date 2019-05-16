@@ -6,13 +6,29 @@ static DH *get_dh2048(void);
 uint32_t sendBuf(int sock, unsigned char* buf, uint32_t size);
 bool sendCertificate(int sock, const char* path);
 uint32_t recvBuf(int sock, unsigned char*& buf);
-
+bool confirmIdentity();
 
 
 //Alice
 void stsInitiator(int sock){
-	printf("------ Station-to-station key exchange ------\n");
 	int ret;
+	printf("------ Station-to-station key exchange ------\n");
+	//build store for certificate verification
+	X509* ca_cert;
+	string ca_cert_path("clientDir/.certificate/ca_cert.pem");
+	if(!readCertificate(ca_cert_path.c_str(), ca_cert)){
+
+	}
+	X509_CRL* crl;
+	string crl_path("clientDir/.certificate/crl.pem");
+	if(!readCrl(crl_path.c_str(), crl)){
+
+	}
+	X509_STORE* store;
+	if(!buildStore(ca_cert, crl, store)){
+
+	}
+
 	//generate a
 	//compute Ya
 	DH* mySession = get_dh2048();
@@ -23,7 +39,7 @@ void stsInitiator(int sock){
 	if(ret == 0){
 
 	}
-	printf("a gen, Ya gen\n");
+	//printf("a gen, Ya gen\n");
 	const BIGNUM* pubk;
 	DH_get0_key(mySession, &pubk, NULL);
 //send M1: Ya
@@ -34,10 +50,10 @@ void stsInitiator(int sock){
 
 	}
 	sendBuf(sock, Ya, ret);
-	printf("M1 sent\n");
+	//printf("M1 sent\n");
 
 //recv M2: Yb, {<Ya,Yb>}, certB
-	printf("receiving M2....\n");
+	//printf("receiving M2....\n");
 	//recv Yb
 	unsigned char* Yb = NULL;
 	ret = recvBuf(sock, Yb);
@@ -45,7 +61,7 @@ void stsInitiator(int sock){
 
 	}
 	int Yb_size = ret;
-	printf("\treceived Yb\n");
+	//printf("\treceived Yb\n");
 	//compute K
 	BIGNUM* yb = BN_bin2bn(Yb, Yb_size, NULL);
 	unsigned char* sharedKey = (unsigned char*)malloc(DH_size(mySession));
@@ -54,7 +70,7 @@ void stsInitiator(int sock){
 
 	}
 	int sharedKey_size = ret;
-	printf("K computed: [%d]\n", sharedKey_size);
+	//printf("K computed: [%d]\n", sharedKey_size);
 	//derive symmetric key pair (encryption and authentication)
 	// from the hash of the shared secret
 	unsigned int keyHash_size = EVP_MD_size(EVP_sha512());
@@ -87,7 +103,7 @@ void stsInitiator(int sock){
 	if(M2_plain_len == -1){
 
 	}
-	printf("\treceived M2\n");
+	//printf("\treceived M2\n");
 
 	//recv certB
 	unsigned char* certB_buf = NULL;
@@ -100,7 +116,7 @@ void stsInitiator(int sock){
 	if(!certB){
 
 	}
-	printf("\treceived certB\n");
+	//printf("\treceived certB\n");
 
 //check if Yb was authentic
 	int Ya_Yb_size = Yb_size + Ya_size;
@@ -108,9 +124,26 @@ void stsInitiator(int sock){
 	memcpy(Ya_Yb, Ya, Ya_size);
 	memcpy(Ya_Yb + Ya_size, Yb, Yb_size);
 
-	//verify certificate TODOOOO
+	//check if valid client
+	char client_subject[] = "/C=IT/O=File Server/CN=File Server";
+	X509_NAME* subject_name = X509_get_subject_name(certB);
+	char* tmpstr = X509_NAME_oneline(subject_name, NULL, 0);
+	if(strcmp(client_subject, tmpstr) != 0){		//check if it's the client i want to speak to
+		printf("subject different\n");
+	}
 
-	//verify certificate TODOOOO	
+	//verify certificate
+	if(!verifyCertificate(store, certB)){
+		printf("Not valid certificate\n");
+	}
+	//printf("Certificate verification on CA passed\n");
+
+//ask client to confirm server identity
+	printf("Server identity:\n");
+	printSubjectName(certB);
+	if(!confirmIdentity()){ //add input for identity confirmation by the user
+
+	}
 
 	//get the peer public key
 	EVP_PKEY* peer_pub_key = X509_get_pubkey(certB);
@@ -121,18 +154,15 @@ void stsInitiator(int sock){
 	if(!verifySignature(Ya_Yb, Ya_Yb_size, M2_plain, M2_plain_len, peer_pub_key)){
 		//not auth
 	}
-	printf("M2: Yb authentic\n");
+	//printf("M2: Yb authentic\n");
 
 //delete a
 	DH_free(mySession);
-	printf("deleted a\n");
-
-
-
+	//printf("deleted a\n");
 
 
 //send M3: {<Ya,Yb>}, certA
-	printf("sending M3...\n");
+	//printf("sending M3...\n");
 	//send {<Ya,Yb>}
 	FILE* privkey_file = fopen("clientDir/.certificate/priv_key.pem", "r");
 	if(!privkey_file){
@@ -158,12 +188,12 @@ void stsInitiator(int sock){
 
 	}
 	sendBuf(sock, M3_encrypted, M3_encrypted_len);
-	printf("\tm3 sent\n");
+	//printf("\tm3 sent\n");
 
 	//send certA
 	string path("clientDir/.certificate/cert.pem");
 	sendCertificate(sock, path.c_str());
-	printf("\tsent certA\n");
+	//printf("\tsent certA\n");
 
 
 
@@ -173,7 +203,7 @@ void stsInitiator(int sock){
 	printHex(encrKey, symmetricKey_len);
 	printf("Authentication key: \n");
 	printHex(authKey, symmetricKey_len);
-	printf("------\n");
+	printf("------\n\n");
 
 	memcpy(key, encrKey, symmetricKey_len);
 	memcpy(key_hmac, authKey, symmetricKey_len);
@@ -184,8 +214,23 @@ void stsInitiator(int sock){
 //Bob
 void stsResponse(int sock){
 	printf("------ Station-to-station key exchange ------\n");
-
 	int ret;
+
+	//build store for certificate verification
+	X509* ca_cert;
+	string ca_cert_path("serverDir/.certificate/ca_cert.pem");
+	if(!readCertificate(ca_cert_path.c_str(), ca_cert)){
+
+	}
+	X509_CRL* crl;
+	string crl_path("serverDir/.certificate/crl.pem");
+	if(!readCrl(crl_path.c_str(), crl)){
+
+	}
+	X509_STORE* store;
+	if(!buildStore(ca_cert, crl, store)){
+
+	}
 	//recv M1: Ya	
 	unsigned char* Ya = NULL;
 	ret = recvBuf(sock, Ya);
@@ -193,7 +238,7 @@ void stsResponse(int sock){
 
 	}
 	int Ya_size = ret;
-	printf("received Ya\n");
+	//printf("received Ya\n");
 
 	//generate b, Yb
 	DH* mySession = get_dh2048();
@@ -204,7 +249,7 @@ void stsResponse(int sock){
 	if(ret == 0){
 
 	}
-	printf("b gen, Yb gen\n");
+	//printf("b gen, Yb gen\n");
 	const BIGNUM* pubk;
 	DH_get0_key(mySession, &pubk, NULL);
 	//compute K
@@ -214,7 +259,7 @@ void stsResponse(int sock){
 	}
 	unsigned char* sharedKey = (unsigned char*)malloc(50000);//DH_size(mySession));
 	int sharedKey_size = DH_compute_key(sharedKey, ya, mySession);
-	printf("K computed: [%d]\n", sharedKey_size);
+	//printf("K computed: [%d]\n", sharedKey_size);
 	// derive symmetric key pair (encryption and authentication) from the
 	// hash of the sharedSecret (sha512)
 	unsigned int keyHash_size = EVP_MD_size(EVP_sha512());
@@ -235,7 +280,7 @@ void stsResponse(int sock){
 	memset(keyHash, 0, keyHash_size);
 
 //send M2: Yb, {<Ya,Yb>}, certB
-	printf("sending M2....\n");
+	//printf("sending M2....\n");
 	//send Yb
 	unsigned char* Yb = (unsigned char*)malloc(BN_num_bytes(pubk));
 	ret = BN_bn2bin(pubk, Yb);
@@ -244,7 +289,7 @@ void stsResponse(int sock){
 
 	}
 	sendBuf(sock, Yb, ret);
-	printf("\tsent Yb\n");
+	//printf("\tsent Yb\n");
 	//send {<Ya,Yb>}
 	int Ya_Yb_size = Ya_size + Yb_size;
 	unsigned char* Ya_Yb = (unsigned char*)malloc(Ya_Yb_size);
@@ -272,19 +317,19 @@ void stsResponse(int sock){
 
 	}
 	sendBuf(sock, M2_encrypted, M2_encrypted_len);
-	printf("\tsent M2\n");
+	//printf("\tsent M2\n");
 
 	//send certB
 	string path("serverDir/.certificate/cert.pem");
 	sendCertificate(sock, path.c_str());
-	printf("\tsent certB\n");
+	//printf("\tsent certB\n");
 
 //delete b
 	DH_free(mySession);
-	printf("deleted b\n");
+	//printf("deleted b\n");
 	
 //recv M3: {<Ya,Yb>}, certA
-	printf("receiving M3...\n");
+	//printf("receiving M3...\n");
 	//recv {<Ya,Yb>}
 	unsigned char* M3 = NULL;
 	ret = recvBuf(sock, M3);
@@ -298,7 +343,7 @@ void stsResponse(int sock){
 	if(M3_plain_len == -1){
 
 	}
-	printf("\treceived M3\n");
+	//printf("\treceived M3\n");
 
 	//recv certA
 	unsigned char* certA_buf = NULL;
@@ -311,11 +356,24 @@ void stsResponse(int sock){
 	if(!certA){
 
 	}
-	printf("\treceived certA\n");
+	//printf("\treceived certA\n");
 
-	//verify certificate TODOOOO
+	//verify certificate
+	if(!verifyCertificate(store, certA)){
+		printf("Not valid certificate\n");
+	}
+	//printf("Certificate verification on CA passed\n");
 
-	//verify certificate TODOOOO
+	printf("Client identity:\n");
+	char client_subject[] = "/C=IT/CN=Client";
+	X509_NAME* subject_name = X509_get_subject_name(certA);
+	char* tmpstr = X509_NAME_oneline(subject_name, NULL, 0);
+	printf("Subject: %s\n", tmpstr);
+	if(strcmp(client_subject, tmpstr) != 0){		//check if it's the client i want to speak to
+		
+	}
+	free(subject_name);
+
 
 	EVP_PKEY* peer_pub_key = X509_get_pubkey(certA);
 	if(!peer_pub_key){
@@ -325,7 +383,7 @@ void stsResponse(int sock){
 	if(!verifySignature(Ya_Yb, Ya_Yb_size, M3_plain, M3_plain_len, peer_pub_key)){
 
 	}
-	printf("M3: Ya is authentic\n");
+	//printf("M3: Ya is authentic\n");
 	EVP_PKEY_free(peer_pub_key);
 	printf("Session start.\n");
 	printf("------\n");
@@ -333,7 +391,7 @@ void stsResponse(int sock){
 	printHex(encrKey, symmetricKey_len);
 	printf("Authentication key: \n");
 	printHex(authKey, symmetricKey_len);
-	printf("------\n");
+	printf("------\n\n");
 
 	memcpy(key, encrKey, symmetricKey_len);
 	memcpy(key_hmac, authKey, symmetricKey_len);
@@ -437,4 +495,29 @@ uint32_t recvBuf(int sock, unsigned char*& buf){
 	
 	return size;
 
+}
+
+bool confirmIdentity(){
+	bool confirm = false;
+	bool decision = false;
+	while(!confirm){
+		printf("Please confirm identity: y/n .....\n");
+		string s;
+		cin >> s;
+		if(strcmp(s.c_str(), "y") == 0){
+			decision = confirm = true;
+		}
+		else if(strcmp(s.c_str(), "n") == 0){
+			confirm = true;
+		}
+		else
+			printf("\n");
+	}
+
+	if(decision)
+		printf("\033[1;32mIdentity confirmed\033[0m\n");
+	else
+		printf("\033[1;31mIdentity denied\n\033[0m");
+
+	return decision;
 }

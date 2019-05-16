@@ -106,7 +106,7 @@ uint64_t recvCryptoSize(int sock){
 //memset(hmac, 0, hmacSize);    //to make hmac check fail
     //authenticity verification
     if(compare_hmac_SHA256(hmac, recv_hmac)){
-        printf("\033[1;32mSIZE is AUTHENTIC\033[0m\n");    
+        //printf("\033[1;32mSIZE is AUTHENTIC\033[0m\n");    
     }
     else{        
         printf("\033[1;31mSIZE IS NOT AUTHENTIC\033[0m\n");
@@ -271,7 +271,7 @@ int recvCryptoString(int sock, char*& buf){
         //printf("\033[1;32mSTRING is AUTHENTIC\033[0m\n");    
     }
     else{        
-        //printf("\033[1;31mSTRING IS NOT AUTHENTIC\033[0m\n");
+        printf("\033[1;31mSTRING IS NOT AUTHENTIC\033[0m\n");
         goto recvCryptoStringQuit_1;
     }
 
@@ -375,7 +375,7 @@ uint64_t sendCryptoFileTo(int sock, const char* fs_name){
         unsigned int hmac_len;
         //read fragment of file
         while((fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs)) > 0){
-            cout << "Block #"<< blockCount << "\tsize: " << fs_block_sz << "\n";
+            //cout << "Block #"<< blockCount << "\tsize: " << fs_block_sz << "\n";
 
             // for every fragment update the digest of the plain fragment 
             if(1 != HMAC_Update(mdctx, sdbuf, fs_block_sz))
@@ -543,7 +543,7 @@ uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name)
             if(fr_block_sz == -1 || fr_block_sz != recv_len)
                 goto recvCryptoFileFromQuit_1;
 
-            cout << "Block #"<< blockCount <<"\tremaining "<<remaining - fr_block_sz <<"\tsize: " << fr_block_sz << "/" << LENGTH << " Bytes\n";   
+            //cout << "Block #"<< blockCount <<"\tremaining "<<remaining - fr_block_sz <<"\tsize: " << fr_block_sz << "/" << LENGTH << " Bytes\n";   
 
             // decrypt the fragment 
             if(1 != EVP_DecryptUpdate(ctx, plaintext, &tmp_len, (unsigned char*)recvbuf, fr_block_sz))
@@ -583,10 +583,12 @@ uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name)
             goto recvCryptoFileFromQuit_1;
 
         // debug print both hmac 
+        /*
     cout << "FILE'S hmac:      ";
     printHex(hmac, hmacSize);
     cout <<"FILE'S recv_hmac: ";
     printHex(recv_hmac, hmacSize);
+        */
 
         // equal hmac -> authentic 
         if(compare_hmac_SHA256(hmac, recv_hmac)){

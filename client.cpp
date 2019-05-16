@@ -119,7 +119,6 @@ respawn:
             int len = sendCryptoString(client_sock, opcode.c_str());
             if(len == -1)
                 goto respawn;
-            printf("Command issued\n\n");
 
             /* list operation */
             if(strcmp(opcode.c_str(), "list") == 0 ){                
