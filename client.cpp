@@ -6,14 +6,19 @@
 using namespace std;
 
 int main(){   
-/*
-    cout << sizeof(uint32_t) << "\n";
-    unsigned char* dig = (unsigned char*)malloc(32);
-    hmac_SHA256("add", 3, (unsigned char*)"1234", dig);
-    printHexKey(dig, 32);
-    */
     bool firstLoop = true;
-    commands_available();
+    //commands_available();
+    int client_sock = connectToServer(serverIp, serverPort);
+    if(client_sock == -1){
+        return 1;
+    }
+
+    //KEY EXCHANGE Station-to-Station
+    stsInitiator(client_sock);
+
+    /* i am now connected to the server */
+
+
 
     while(1){
 respawn:
@@ -36,7 +41,16 @@ respawn:
         
 
         //exit command
-        if(strcmp(opcode.c_str(), "exit") == 0 || strcmp(opcode.c_str(), "quit") == 0 ){
+        if(strcmp(opcode.c_str(), "exit") == 0 || strcmp(opcode.c_str(), "quit") == 0 ){ 
+            sendCryptoString(client_sock, opcode.c_str());
+            //operation done, close the server socket
+            close(client_sock);
+            //clear keys
+            memset(key, 0, 32);
+            memset(key_hmac, 0, 32);
+            //free key pointers
+            free(key);
+            free(key_hmac);
             return 0;
         }
         /* screen clear */
@@ -85,6 +99,7 @@ respawn:
         }
         /* info about protocol */
         else if(strcmp(opcode.c_str(), "info") == 0 ){
+            cout << "Station-to-Station Diffie-Hellman key exchange protocol with direct authentication\n";
             cout << "Encryption:\n\033[1;33mAES-256-cbc\033[0m\n";
             cout << "\tKey size: " << EVP_CIPHER_key_length(EVP_aes_256_cbc()) << "\n";
             cout << "\tBlock size: " << EVP_CIPHER_block_size(EVP_aes_256_cbc())<< "\n\n";
@@ -102,18 +117,8 @@ respawn:
                 return 1;
         }
 
-        /* establish connection to the server only if cmd is 'list', 'down', 'up' */
-        int client_sock;
+        /* send command to the server only if cmd is 'list', 'down', 'up' */
         if( checkRemoteOperation(opcode) ){
-            client_sock = connectToServer(serverIp, serverPort);
-            if(client_sock == -1){
-                return 1;
-            }
-
-            //KEY EXCHANGE Station-to-Station
-            stsInitiator(client_sock);
-
-            /* i am now connected to the server */
 
             //send to the server the opcode
             int len = sendCryptoString(client_sock, opcode.c_str());
@@ -160,10 +165,7 @@ respawn:
                 //receive the file and put to the path
                 unsigned int file_len;
                 file_len = recvCryptoFileFrom(client_sock, fdw_name.c_str(), "clientDir");
-            }   
-            //operation done, close the server socket
-            close(client_sock);
-        }
+            }           }
         /* bad command issued */
         else{ 
             cout << "Command not found! Try with:\n";

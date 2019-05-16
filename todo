@@ -18,6 +18,7 @@ Dobbiamo sapere se la getFileSize ha avuto problemi oppure no. Inoltre devo cono
 ****6 done -> function checkInputString()
 
 7_ dopo diffie hellman non usare la chiave condivisa come chiave simmetrica. Usare come chiave H(sharedKey), se troppo lunga si puo troncare l'hash
+****7 done
 
 8_ controllare client.cpp da "list" in poi
 ****8 done
@@ -31,6 +32,7 @@ Dobbiamo sapere se la getFileSize ha avuto problemi oppure no. Inoltre devo cono
 ****11 done
 
 12_ verificare un certificato non e sufficiente, bisogna anche controllare il subject name -> stampare a schermo
+****12 done
 
 13_ nome del client hardcoded o piccola tabella di utenti permessi nel sistema (elenco di nomi da cercare nel subject name del cetificato)
-
+****13 done -> singolo subject name del client hard coded e subject name del server hardcoded

@@ -210,7 +210,9 @@ int recvCryptoString(int sock, char*& buf){
 
     //receive ciphertext size (secure)
     ciphertext_len = recvCryptoSize(sock);
-    if(ciphertext_len == 0 || ciphertext_len <= hmacSize || ciphertext_len > 256 + hmacSize){  //if someone change the string size. At least the hmac must exists
+    if(ciphertext_len == 0)
+        return -1;
+    if(ciphertext_len <= hmacSize || ciphertext_len > 256 + hmacSize){  //if someone change the string size. At least the hmac must exists
         perror("ERROR string\n");
         return -1;
     }
@@ -346,9 +348,6 @@ uint64_t sendCryptoFileTo(int sock, const char* fs_name){
         goto sendCryptoFileToQuit_1;
 
 // HMAC init
-    //readKeyFromFile(key_hmac, hmacSize, "mykey");
-    //cout << "key: " << key_hmac_size << "\n";
-    //printHexKey(key_hmac, key_hmac_size);
     if(!(mdctx = HMAC_CTX_new()))
         goto sendCryptoFileToQuit_1;
     if(1 != HMAC_Init_ex(mdctx, key_hmac, key_hmac_size, EVP_sha256(), NULL))
@@ -509,9 +508,6 @@ uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name)
         goto recvCryptoFileFromQuit_1;        
 
 // HMAC
-    //readKeyFromFile(key_hmac, hmacSize, "mykey");
-    //cout << "key: " << hmacSize << "\n";
-    //printHexKey(key_hmac, hmacSize);
     if(!(mdctx = HMAC_CTX_new()))
         goto recvCryptoFileFromQuit_1;
     if(1 != HMAC_Init_ex(mdctx, key_hmac, hmacSize, EVP_sha256(), NULL))
