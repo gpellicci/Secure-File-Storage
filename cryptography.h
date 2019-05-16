@@ -9,8 +9,7 @@
 #include "certificate.h"
 
 
-void handleErrors(void)
-{
+void handleErrors(void){
   perror("Error crypto\n");
 }
 
@@ -18,8 +17,7 @@ void handleErrors(void)
 //dobbiamo fare update ad ogni ciclo sui blocchi e final solo all'ultimo
 
 int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
-  unsigned char *iv, unsigned char *ciphertext, const EVP_CIPHER* type)
-{
+  unsigned char *iv, unsigned char *ciphertext, const EVP_CIPHER* type){
   EVP_CIPHER_CTX *ctx;
 
   int len;
