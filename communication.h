@@ -310,8 +310,10 @@ uint64_t sendCryptoFileTo(int sock, const char* fs_name){
 
     // Compute file size 
     uint64_t len;
-    if(getFileSize(path, len) == false)
+    if(getFileSize(path, len) == false){
+        sendCryptoSize(sock, len);
         return 0;
+    }
     
     // Compute number of fragments
     unsigned int nFrags = len / LENGTH;
@@ -321,6 +323,7 @@ uint64_t sendCryptoFileTo(int sock, const char* fs_name){
     // Send file size 
     if(sendCryptoSize(sock, len) == false)
         return 0;
+
 
     unsigned int cipherSize = len + 16 - (len %16);
     

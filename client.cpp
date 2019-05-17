@@ -119,7 +119,6 @@ respawn:
 
         /* send command to the server only if cmd is 'list', 'down', 'up' */
         if( checkRemoteOperation(opcode) ){
-
             //send to the server the opcode
             int len = sendCryptoString(client_sock, opcode.c_str());
             if(len == -1)
@@ -142,9 +141,12 @@ respawn:
             }
             /* upload operation */
             else if(strcmp(opcode.c_str(), "up") == 0 ){
+                unsigned int ret;
                 //send the name of the file that you are going to upload            
                 string fup_name = fname;
-                sendCryptoString(client_sock, fup_name.c_str());
+                ret = sendCryptoString(client_sock, fup_name.c_str());
+                if(ret == -1)
+                    goto respawn;
                 printf("Filename issued\n\n");
 
                 
@@ -157,15 +159,19 @@ respawn:
             }
             /* download operation */
             else if(strcmp(opcode.c_str(), "down") == 0 ){    
+                unsigned int ret;
                 //send the name of the file that you are going to download
                 string fdw_name = fname;
-                sendCryptoString(client_sock, fdw_name.c_str());
+                ret = sendCryptoString(client_sock, fdw_name.c_str());
+                if(ret == -1)
+                    goto respawn;
                 printf("Filename issued\n\n");           
 
                 //receive the file and put to the path
                 unsigned int file_len;
                 file_len = recvCryptoFileFrom(client_sock, fdw_name.c_str(), "clientDir");
-            }           }
+            }           
+        }
         /* bad command issued */
         else{ 
             cout << "Command not found! Try with:\n";

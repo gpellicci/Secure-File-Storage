@@ -57,7 +57,6 @@ int main(){
                 //receive the name of the file 
                 char* fup_name;
                 int ret = recvCryptoString(tcp_client, fup_name);            
-                
                 //check return and sanitize input filename, to avoid issue in the middle        
                 if(ret == -1 || !checkInputString(string(fup_name), filenameMaxLen))
                     goto respawn;
