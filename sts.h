@@ -579,6 +579,7 @@ uint32_t sendBuf(int sock, unsigned char* buf, uint32_t size){
 	return size;
 }
 
+//send cert
 bool sendCertificate(int sock, const char* path){
 	X509* cert;
 	FILE* cert_file = fopen(path, "r");
