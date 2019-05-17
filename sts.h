@@ -10,44 +10,56 @@ bool confirmIdentity();
 
 
 //Alice
-void stsInitiator(int sock){
+bool stsInitiator(int sock){
 	int ret;
+	unsigned char* Ya = NULL,* sharedKey = NULL,* keyHash = NULL, *encrKey = NULL;
+	unsigned char* authKey = NULL, *M2_plain = NULL, *Ya_Yb = NULL, *M3_encrypted = NULL;
 	printf("------ Station-to-station key exchange ------\n");
 	//build store for certificate verification
 	X509* ca_cert;
 	string ca_cert_path("clientDir/.certificate/ca_cert.pem");
 	if(!readCertificate(ca_cert_path.c_str(), ca_cert)){
-
+		return false;
 	}
 	X509_CRL* crl;
 	string crl_path("clientDir/.certificate/crl.pem");
 	if(!readCrl(crl_path.c_str(), crl)){
-
+		return false;
 	}
 	X509_STORE* store;
 	if(!buildStore(ca_cert, crl, store)){
-
+		return false;
 	}
 
 	//generate a
 	//compute Ya
 	DH* mySession = get_dh2048();
 	if(!mySession){
-
+		return false;
 	}
 	ret = DH_generate_key(mySession);
 	if(ret == 0){
-
+		return false;
 	}
 	//printf("a gen, Ya gen\n");
 	const BIGNUM* pubk;
 	DH_get0_key(mySession, &pubk, NULL);
 //send M1: Ya
-	unsigned char* Ya = (unsigned char*)malloc(BN_num_bytes(pubk));
+	Ya = (unsigned char*)malloc(BN_num_bytes(pubk));
+	if(!Ya){
+		return false;
+	}
 	ret = BN_bn2bin(pubk, Ya);
 	int Ya_size = ret;
 	if(ret != BN_num_bytes(pubk)){
-
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
 	}
 	sendBuf(sock, Ya, ret);
 	//printf("M1 sent\n");
@@ -58,34 +70,82 @@ void stsInitiator(int sock){
 	unsigned char* Yb = NULL;
 	ret = recvBuf(sock, Yb);
 	if(!ret){
-
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
 	}
 	int Yb_size = ret;
 	//printf("\treceived Yb\n");
 	//compute K
 	BIGNUM* yb = BN_bin2bn(Yb, Yb_size, NULL);
-	unsigned char* sharedKey = (unsigned char*)malloc(DH_size(mySession));
+	sharedKey = (unsigned char*)malloc(DH_size(mySession));
+	if(!sharedKey){
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
+	}
 	ret = DH_compute_key(sharedKey, yb, mySession);
 	if(ret != DH_size(mySession)){
-
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
 	}
 	int sharedKey_size = ret;
 	//printf("K computed: [%d]\n", sharedKey_size);
 	//derive symmetric key pair (encryption and authentication)
 	// from the hash of the shared secret
 	unsigned int keyHash_size = EVP_MD_size(EVP_sha512());
-	unsigned char* keyHash = (unsigned char*)malloc(keyHash_size);
+	keyHash = (unsigned char*)malloc(keyHash_size);
 	if(!keyHash){
-
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
 	}
 	ret = SHA512(sharedKey, sharedKey_size, keyHash);
 	if(!ret){
-
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
 	}
 	int symmetricKey_len = keyHash_size/2;
-	unsigned char* encrKey = (unsigned char*)malloc(symmetricKey_len);
+	encrKey = (unsigned char*)malloc(symmetricKey_len);
+	authKey = (unsigned char*)malloc(symmetricKey_len);
+	if(encrKey == 0 || authKey == 0){
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
+	}
 	memcpy(encrKey, keyHash, symmetricKey_len);
-	unsigned char* authKey = (unsigned char*)malloc(symmetricKey_len);
 	memcpy(authKey, keyHash + symmetricKey_len, symmetricKey_len);
 	memset(sharedKey, 0, sharedKey_size);
 	memset(keyHash, 0, keyHash_size);
@@ -94,14 +154,38 @@ void stsInitiator(int sock){
 	unsigned char* M2 = NULL;
 	ret = recvBuf(sock, M2);
 	if(!ret){
-
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
 	}
 	int M2_size = ret;
 	int M2_plain_len;
-	unsigned char* M2_plain = (unsigned char*)malloc(2*M2_size);
+	M2_plain = (unsigned char*)malloc(2*M2_size);
+	if(!M2_plain){
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
+	}
 	M2_plain_len = decrypt(M2, M2_size, encrKey, NULL, M2_plain, EVP_aes_256_ecb());
 	if(M2_plain_len == -1){
-
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
 	}
 	//printf("\treceived M2\n");
 
@@ -109,18 +193,42 @@ void stsInitiator(int sock){
 	unsigned char* certB_buf = NULL;
 	ret = recvBuf(sock, certB_buf);
 	if(!ret){
-
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
 	}
 	int certB_size = ret;
 	X509* certB = d2i_X509(NULL, (const unsigned char**)&certB_buf, certB_size);
 	if(!certB){
-
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
 	}
 	//printf("\treceived certB\n");
 
 //check if Yb was authentic
 	int Ya_Yb_size = Yb_size + Ya_size;
-	unsigned char* Ya_Yb = (unsigned char*)malloc(Ya_Yb_size);
+	Ya_Yb = (unsigned char*)malloc(Ya_Yb_size);
+	if(!Ya_Yb){
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
+	}
 	memcpy(Ya_Yb, Ya, Ya_size);
 	memcpy(Ya_Yb + Ya_size, Yb, Yb_size);
 
@@ -130,11 +238,28 @@ void stsInitiator(int sock){
 	char* tmpstr = X509_NAME_oneline(subject_name, NULL, 0);
 	if(strcmp(client_subject, tmpstr) != 0){		//check if it's the client i want to speak to
 		printf("subject different\n");
+		//TODO
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
 	}
 
 	//verify certificate
 	if(!verifyCertificate(store, certB)){
 		printf("Not valid certificate\n");
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
 	}
 	//printf("Certificate verification on CA passed\n");
 
@@ -142,17 +267,39 @@ void stsInitiator(int sock){
 	printf("Server identity:\n");
 	printSubjectName(certB);
 	if(!confirmIdentity()){ //add input for identity confirmation by the user
-
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;; //TODO
 	}
 
 	//get the peer public key
 	EVP_PKEY* peer_pub_key = X509_get_pubkey(certB);
 	if(!peer_pub_key){
-
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
 	}
 	//verify the signature Ya_Yb with that signature <Ya,Yb>
 	if(!verifySignature(Ya_Yb, Ya_Yb_size, M2_plain, M2_plain_len, peer_pub_key)){
-		//not auth
+		//not auth TODO
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
 	}
 	//printf("M2: Yb authentic\n");
 
@@ -176,18 +323,42 @@ void stsInitiator(int sock){
 	unsigned char* M3_signature = NULL;
 	int M3_signature_len = sign(Ya_Yb, Ya_Yb_size, privkey, M3_signature);
 	if(!M3_signature){
-
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
 	}
 	EVP_PKEY_free(privkey);
 
 
-	unsigned char* M3_encrypted = (unsigned char*)malloc(M3_signature_len + 16);
+	M3_encrypted = (unsigned char*)malloc(M3_signature_len + 16);
+	if(!M3_encrypted){
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;;
+	}
 	int M3_encrypted_len;
 	M3_encrypted_len = encrypt(M3_signature, M3_signature_len, encrKey, NULL, M3_encrypted, EVP_aes_256_ecb());
 	if(M3_encrypted_len == -1){
-
+		free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;
 	}
-	sendBuf(sock, M3_encrypted, M3_encrypted_len);
+	sendBuf(sock, M3_encrypted, M3_encrypted_len); // TODO 
 	//printf("\tm3 sent\n");
 
 	//send certA
@@ -208,34 +379,47 @@ void stsInitiator(int sock){
 	memcpy(key, encrKey, symmetricKey_len);
 	memcpy(key_hmac, authKey, symmetricKey_len);
 	//session start
+	return true;
+
+fail1:
+	free(Ya_Yb);
+	free(M2_plain);
+	free(encrKey);
+	free(authKey);
+	free(keyHash);
+	free(sharedKey);
+	free(Ya);
+	return false;
 
 }
 
+
 //Bob
-void stsResponse(int sock){
+bool stsResponse(int sock){
 	printf("------ Station-to-station key exchange ------\n");
 	int ret;
-
+	unsigned char* sharedKey = NULL, * keyHash = NULL, * encrKey = NULL, * authKey = NULL;
+	unsigned char* Ya_Yb = NULL, *M2_encrypted = NULL, * M3_plain = NULL, * Yb = NULL;
 	//build store for certificate verification
 	X509* ca_cert;
 	string ca_cert_path("serverDir/.certificate/ca_cert.pem");
 	if(!readCertificate(ca_cert_path.c_str(), ca_cert)){
-
+		return false;
 	}
 	X509_CRL* crl;
 	string crl_path("serverDir/.certificate/crl.pem");
 	if(!readCrl(crl_path.c_str(), crl)){
-
+		return false;
 	}
 	X509_STORE* store;
 	if(!buildStore(ca_cert, crl, store)){
-
+		return false;
 	}
 	//recv M1: Ya	
 	unsigned char* Ya = NULL;
 	ret = recvBuf(sock, Ya);
 	if(!ret){
-
+		return false;
 	}
 	int Ya_size = ret;
 	//printf("received Ya\n");
@@ -243,11 +427,11 @@ void stsResponse(int sock){
 	//generate b, Yb
 	DH* mySession = get_dh2048();
 	if(!mySession){
-
+		return false;
 	}
 	ret = DH_generate_key(mySession);
 	if(ret == 0){
-
+		return false;
 	}
 	//printf("b gen, Yb gen\n");
 	const BIGNUM* pubk;
@@ -256,25 +440,64 @@ void stsResponse(int sock){
 	BIGNUM* ya = BN_bin2bn(Ya, Ya_size, NULL);
 	if(!ya){
 		printf("error\n");
+		return false;
 	}
-	unsigned char* sharedKey = (unsigned char*)malloc(50000);//DH_size(mySession));
+	sharedKey = (unsigned char*)malloc(50000);//DH_size(mySession));
+	if(!sharedKey){
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
+	}
 	int sharedKey_size = DH_compute_key(sharedKey, ya, mySession);
 	//printf("K computed: [%d]\n", sharedKey_size);
 	// derive symmetric key pair (encryption and authentication) from the
 	// hash of the sharedSecret (sha512)
 	unsigned int keyHash_size = EVP_MD_size(EVP_sha512());
-	unsigned char* keyHash = (unsigned char*)malloc(keyHash_size);
+	keyHash = (unsigned char*)malloc(keyHash_size);
 	if(!keyHash){
-
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
 	}
 	ret = SHA512(sharedKey, sharedKey_size, keyHash);
 	if(!ret){
-
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
 	}
 	int symmetricKey_len = keyHash_size/2;
-	unsigned char* encrKey = (unsigned char*)malloc(symmetricKey_len);
+	encrKey = (unsigned char*)malloc(symmetricKey_len);
+	authKey = (unsigned char*)malloc(symmetricKey_len);
+	if(encrKey == 0 || authKey == 0){
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
+	}
 	memcpy(encrKey, keyHash, symmetricKey_len);
-	unsigned char* authKey = (unsigned char*)malloc(symmetricKey_len);
 	memcpy(authKey, keyHash + symmetricKey_len, symmetricKey_len);
 	memset(sharedKey, 0, sharedKey_size);
 	memset(keyHash, 0, keyHash_size);
@@ -282,39 +505,112 @@ void stsResponse(int sock){
 //send M2: Yb, {<Ya,Yb>}, certB
 	//printf("sending M2....\n");
 	//send Yb
-	unsigned char* Yb = (unsigned char*)malloc(BN_num_bytes(pubk));
+	Yb = (unsigned char*)malloc(BN_num_bytes(pubk));
+	if(!Yb){
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
+	}
 	ret = BN_bn2bin(pubk, Yb);
 	int Yb_size = ret;
 	if(ret != BN_num_bytes(pubk)){
-
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
 	}
 	sendBuf(sock, Yb, ret);
 	//printf("\tsent Yb\n");
 	//send {<Ya,Yb>}
 	int Ya_Yb_size = Ya_size + Yb_size;
-	unsigned char* Ya_Yb = (unsigned char*)malloc(Ya_Yb_size);
+	Ya_Yb = (unsigned char*)malloc(Ya_Yb_size);
+	if(!Ya_Yb){
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
+	}
 	memcpy(Ya_Yb, Ya, Ya_size);
 	memcpy(Ya_Yb + Ya_size, Yb, Yb_size);
 	FILE* privkey_file = fopen("serverDir/.certificate/priv_key.pem", "r");
 	if(!privkey_file){
-
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
 	}
 	EVP_PKEY* privkey = PEM_read_PrivateKey(privkey_file, NULL, NULL, NULL);
 	if(!privkey){
-
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
 	}
 	fclose(privkey_file);
 	unsigned char* M2_signature = NULL;
 	int M2_signature_len = sign(Ya_Yb, Ya_Yb_size, privkey, M2_signature);
 	if(!M2_signature){
-
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
 	}
 	EVP_PKEY_free(privkey);
-	unsigned char* M2_encrypted = (unsigned char*)malloc(M2_signature_len + 16);
+	M2_encrypted = (unsigned char*)malloc(M2_signature_len + 16);
+	if(!M2_encrypted){
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
+	}
 	int M2_encrypted_len;
 	M2_encrypted_len = encrypt(M2_signature, M2_signature_len, encrKey, NULL, M2_encrypted, EVP_aes_256_ecb());
 	if(M2_encrypted_len == -1){
-
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
 	}
 	sendBuf(sock, M2_encrypted, M2_encrypted_len);
 	//printf("\tsent M2\n");
@@ -338,10 +634,29 @@ void stsResponse(int sock){
 	}
 	int M3_size = ret;
 	int M3_plain_len;
-	unsigned char* M3_plain = (unsigned char*)malloc(M2_encrypted_len);
+	M3_plain = (unsigned char*)malloc(M2_encrypted_len);
+	if(!M3_plain){
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
+	}
 	M3_plain_len = decrypt(M3, M3_size, encrKey, NULL, M3_plain, EVP_aes_256_ecb());
 	if(M3_plain_len == -1){
-
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
 	}
 	//printf("\treceived M3\n");
 
@@ -349,12 +664,28 @@ void stsResponse(int sock){
 	unsigned char* certA_buf = NULL;
 	ret = recvBuf(sock, certA_buf);
 	if(!ret){
-
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
 	}
 	int certA_size = ret;
 	X509* certA = d2i_X509(NULL, (const unsigned char**)&certA_buf, certA_size);
 	if(!certA){
-
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
 	}
 	//printf("\treceived certA\n");
 
@@ -370,18 +701,42 @@ void stsResponse(int sock){
 	char* tmpstr = X509_NAME_oneline(subject_name, NULL, 0);
 	printf("Subject: %s\n", tmpstr);
 	if(strcmp(client_subject, tmpstr) != 0){		//check if it's the client i want to speak to
-		
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
 	}
 	free(subject_name);
 
 
 	EVP_PKEY* peer_pub_key = X509_get_pubkey(certA);
 	if(!peer_pub_key){
-
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
 	}
 	//verify the signature Ya_Yb with that signature <Ya,Yb>
 	if(!verifySignature(Ya_Yb, Ya_Yb_size, M3_plain, M3_plain_len, peer_pub_key)){
-
+		free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
 	}
 	//printf("M3: Ya is authentic\n");
 	EVP_PKEY_free(peer_pub_key);
@@ -396,6 +751,18 @@ void stsResponse(int sock){
 	memcpy(key, encrKey, symmetricKey_len);
 	memcpy(key_hmac, authKey, symmetricKey_len);
 	//session start
+	return true;
+
+fail:
+	free(sharedKey);
+	free(keyHash);
+	free(encrKey);
+	free(authKey); 
+	free(Ya_Yb);
+	free(M2_encrypted);
+	free(M3_plain);
+	free(Yb);
+	return false;
 }
 
 

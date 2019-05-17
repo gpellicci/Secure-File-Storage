@@ -14,7 +14,7 @@ int main(){
     }
 
     //KEY EXCHANGE Station-to-Station
-    stsInitiator(client_sock);
+    bool sts = stsInitiator(client_sock);
 
     /* i am now connected to the server */
 
