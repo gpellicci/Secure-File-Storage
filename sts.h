@@ -117,17 +117,17 @@ bool stsInitiator(int sock){
 	//recv {<Ya,Yb>}
 	ret = recvBuf(sock, M2);
 	if(!ret){
-    goto fail1;
+    	goto fail1;
 	}
 	M2_size = ret;
 	int M2_plain_len;
 	M2_plain = (unsigned char*)malloc(2*M2_size);
 	if(!M2_plain){
-    goto fail1;
+    	goto fail1;
 	}
 	M2_plain_len = decrypt(M2, M2_size, encrKey, NULL, M2_plain, EVP_aes_256_ecb());
 	if(M2_plain_len == -1){
-    goto fail1;
+    	goto fail1;
 	}
 	//printf("\treceived M2\n");
 
@@ -585,14 +585,15 @@ bool sendCertificate(int sock, const char* path){
 	if(!cert_file)
 		return false;
 	cert = PEM_read_X509(cert_file, NULL, NULL, NULL);
-	if(!cert_file)
-		return false;
 	fclose(cert_file);
+	if(!cert)
+		return false;
 	unsigned char* cert_buf = NULL;
 	int cert_size = i2d_X509(cert, &cert_buf);
 	if(cert_size < 0)
 		return false;
 	int ret = sendBuf(sock, cert_buf, cert_size);
+	free(cert_buf);
 	OPENSSL_free(cert_buf);
 	if(ret == 0)
 		return false;

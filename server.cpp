@@ -22,11 +22,14 @@ int main(){
                 return 1;
             }
         printf("Accepted connection from %s:%d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
-
+        bool active_client = true;
+        
         //KEY EXCHANGE Station-to-Station
         bool sts = stsResponse(tcp_client);
+        if(!sts){
+            goto close;
+        }
 
-        bool active_client = true;
         while(active_client){
             /* get opcode */
             char* opcode;
@@ -95,6 +98,7 @@ int main(){
 
         }
         //operation over, close socket
+    close:
         memset(key, 0, 32);
         memset(key_hmac, 0, 32);
         close(tcp_client);
