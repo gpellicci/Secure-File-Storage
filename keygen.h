@@ -60,6 +60,22 @@ bool keyGen(unsigned char* &pointer, int len){
 	return true;
 }
 
+bool int64Gen(uint64_t* rand, int len){
+	int ret = RAND_poll();
+	if(ret == -1){
+		perror("RAND_poll. Error");
+		return false;
+	}
+
+	ret = RAND_bytes((unsigned char*)rand, len);	
+	if(ret == -1){
+		perror("RAND_bytes. Error");
+		return false;
+	}
+
+	return true;
+}
+
 bool readKeyFromFile(unsigned char* &key, int len, const char* fname){
 	unsigned char* tmp = (unsigned char*)malloc(len);
 	if(tmp == NULL){

@@ -3,9 +3,9 @@
 #include <openssl/dh.h>
 
 static DH *get_dh2048(void);
-uint32_t sendBuf(int sock, unsigned char* buf, uint32_t size);
+uint16_t sendBuf(int sock, unsigned char* buf, uint16_t size);
 bool sendCertificate(int sock, const char* path);
-uint32_t recvBuf(int sock, unsigned char*& buf);
+uint16_t recvBuf(int sock, unsigned char*& buf);
 bool confirmIdentity();
 
 
@@ -13,6 +13,8 @@ bool confirmIdentity();
 bool stsInitiator(int sock){
 	bool retValue = false;
 	int ret, Ya_Yb_size, certB_size, M2_size, symmetricKey_len, keyHash_size, sharedKey_size, Ya_size, Yb_size, M3_signature_len;
+	uint64_t count, be;
+	unsigned char* encr_count = NULL;
 	X509_NAME* subject_name = NULL;
 	string path;
 	BIGNUM* yb = NULL;
@@ -78,7 +80,7 @@ bool stsInitiator(int sock){
 	if(!ret){
 	    goto fail1;
 	}
-	 Yb_size = ret;
+	Yb_size = ret;
 	//printf("\treceived Yb\n");
 	//compute K
 	yb = BN_bin2bn(Yb, Yb_size, NULL);
@@ -237,10 +239,30 @@ bool stsInitiator(int sock){
 	printHex(encrKey, symmetricKey_len);
 	printf("Authentication key: \n");
 	printHex(authKey, symmetricKey_len);
-	printf("------\n\n");
+	printf("------\n");
 
 	memcpy(key, encrKey, symmetricKey_len);
 	memcpy(key_hmac, authKey, symmetricKey_len);
+
+	//Counter exchange
+	ret = recv(sock, &be, sizeof(uint64_t), MSG_WAITALL);
+	if(ret != sizeof(uint64_t)){
+		goto fail1;
+	}
+	count = be64toh(be); 
+	encr_count = (unsigned char*)malloc(blockSize);
+	ret = encrypt((unsigned char*)&be, sizeof(uint64_t), encrKey, NULL, encr_count, EVP_aes_256_ecb());
+	if(ret != blockSize){
+		goto fail1;
+	}
+	ret = send(sock, encr_count, blockSize, 0);
+	if(ret != blockSize){
+		goto fail1;
+	}
+	cout << "Counter: " << count << "\n";
+	sequenceNumber = count;
+	printf("------\n\n");
+
 	//session start
 	retValue = true;
 
@@ -262,6 +284,7 @@ fail1:
 	free(certB_buf- certB_size);
 	free(M3_encrypted);
 	free(M3_signature);
+	free(encr_count);
 	X509_free(ca_cert);
 	X509_free(certB);
 	X509_CRL_free(crl);
@@ -280,6 +303,8 @@ bool stsResponse(int sock){
 	printf("------ Station-to-station key exchange ------\n");
 	char client_subject[] = "/C=IT/CN=Client";
 	int ret, Ya_size, certA_size, M3_size, M2_signature_len, Ya_Yb_size, Yb_size, symmetricKey_len, keyHash_size, sharedKey_size;
+	uint64_t count, be, recv_count;
+	unsigned char* encr_count = NULL;
 	unsigned char* sharedKey = NULL, * keyHash = NULL, * encrKey = NULL, * authKey = NULL;
 	unsigned char* Ya_Yb = NULL, *M2_encrypted = NULL, * M3_plain = NULL, * Yb = NULL, *certA_buf = NULL, *M3 = NULL, *M2_signature = NULL, *Ya = NULL;
 	char* tmpstr = NULL;
@@ -344,18 +369,21 @@ bool stsResponse(int sock){
 	}
 	ret = SHA512(sharedKey, sharedKey_size, keyHash);
 	if(!ret){
+		free(keyHash);
 		goto fail2;
 	}
 	symmetricKey_len = keyHash_size/2;
 	encrKey = (unsigned char*)malloc(symmetricKey_len);
 	authKey = (unsigned char*)malloc(symmetricKey_len);
 	if(encrKey == 0 || authKey == 0){
+		free(keyHash);
 		goto fail2;
 	}
 	memcpy(encrKey, keyHash, symmetricKey_len);
 	memcpy(authKey, keyHash + symmetricKey_len, symmetricKey_len);
 	memset(sharedKey, 0, sharedKey_size);
 	memset(keyHash, 0, keyHash_size);
+	free(keyHash);
 
 //send M2: Yb, {<Ya,Yb>}, certB
 	//printf("sending M2....\n");
@@ -481,21 +509,47 @@ bool stsResponse(int sock){
 	printHex(encrKey, symmetricKey_len);
 	printf("Authentication key: \n");
 	printHex(authKey, symmetricKey_len);
-	printf("------\n\n");
+	printf("------\n");
 
 	memcpy(key, encrKey, symmetricKey_len);
 	memcpy(key_hmac, authKey, symmetricKey_len);
+
+	//Counter exchange
+	if(!int64Gen(&count, sizeof(uint64_t))){
+		goto fail2;
+	}
+	be = htobe64(count);   //convert length to network byte order (big endian)
+	ret = send(sock, &be, sizeof(uint64_t), 0);
+	if(ret != sizeof(uint64_t)){
+		goto fail2;
+	}
+	encr_count = (unsigned char*)malloc(blockSize);
+	ret = recv(sock, encr_count, blockSize, MSG_WAITALL);
+	if(ret != blockSize){
+		goto fail2;
+	}
+	ret = decrypt(encr_count, blockSize, encrKey, NULL, (unsigned char*)&be, EVP_aes_256_ecb());
+	if(ret != sizeof(uint64_t)){
+		goto fail2;
+	}
+	recv_count = be64toh(be);
+	if(recv_count != count){
+		printf("wrong count\n");
+		goto fail2;
+	}
+	cout << "Counter: " << recv_count << "\n";
+	sequenceNumber = count;
+	printf("------\n\n");
+
 	//session start
 	retValue = true;
 
 fail2:
-
 	free(sharedKey);
-	free(keyHash);
 	free(encrKey);
 	free(authKey); 
 	free(Ya_Yb);
-	free(M2_encrypted);
+	free(M2_encrypted);	
 	free(M3_plain);
 	free(Ya);
 	free(Yb);
@@ -503,6 +557,7 @@ fail2:
 	free(M3);
 	free(M2_signature);
 	free(tmpstr);
+	free(encr_count);
 	EVP_PKEY_free(peer_pub_key);
 	EVP_PKEY_free(privkey);
 	X509_free(ca_cert);
@@ -567,9 +622,9 @@ static DH *get_dh2048(void){
 }
 
 
-uint32_t sendBuf(int sock, unsigned char* buf, uint32_t size){
-	int ret = send(sock, &size, sizeof(uint32_t), 0);
-	if(ret != sizeof(uint32_t)){
+uint16_t sendBuf(int sock, unsigned char* buf, uint16_t size){
+	int ret = send(sock, &size, sizeof(uint16_t), 0);
+	if(ret != sizeof(uint16_t)){
 		return 0;
 	}
 	ret = send(sock, buf, size, 0);
@@ -601,10 +656,10 @@ bool sendCertificate(int sock, const char* path){
 	return true;
 }
 
-uint32_t recvBuf(int sock, unsigned char*& buf){
-	uint32_t size;
-	int ret = recv(sock, &size, sizeof(uint32_t), MSG_WAITALL);
-	if(ret != sizeof(uint32_t))
+uint16_t recvBuf(int sock, unsigned char*& buf){
+	uint16_t size;
+	int ret = recv(sock, &size, sizeof(uint16_t), MSG_WAITALL);
+	if(ret != sizeof(uint16_t))
 		return 0;
 	
 	buf = (unsigned char*)malloc(size);

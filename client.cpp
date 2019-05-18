@@ -143,7 +143,6 @@ respawn:
                 //remove the file
                 system("rm clientDir/.list/list.txt");  
                 if(err == 1){
-                    printf("File not found\n");
                     goto respawn;
                 }
                 if(err == 0){
@@ -192,7 +191,6 @@ respawn:
                 int err;
                 recvCryptoFileFrom(client_sock, fdw_name.c_str(), "clientDir", err);
                 if(err == 1){
-                    printf("File not found\n");
                     goto respawn;
                 }
                 if(err == 0){

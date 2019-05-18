@@ -11,13 +11,15 @@ const unsigned int key_hmac_size = 32;
 
 unsigned char *key = (unsigned char*)malloc(EVP_CIPHER_key_length(EVP_aes_256_cbc()));
 unsigned char *key_hmac = (unsigned char*)malloc(EVP_CIPHER_key_length(EVP_aes_256_cbc()));
+uint64_t sequenceNumber;
 
 bool sendCryptoSize(int sock, uint64_t len){
     uint64_t lmsg = htobe64(len);   //convert length to network byte order (big endian)
+    uint64_t count = htobe64(sequenceNumber);
     void* r;
     int plaintext_len, ciphertext_len, ret;
-    unsigned char* plaintext = (unsigned char*)malloc(sizeof(uint64_t) + hmacSize);
-    unsigned char* ciphertext = (unsigned char*)malloc(blockSize + hmacSize ); 
+    unsigned char* plaintext = (unsigned char*)malloc(sizeof(uint64_t) + sizeof(uint64_t) + hmacSize);
+    unsigned char* ciphertext = (unsigned char*)malloc(sizeof(uint64_t) + sizeof(uint64_t) + hmacSize + blockSize); 
     unsigned char* iv = NULL;
     //generate the IV at random
     if(!keyGen(iv, blockSize)) 
@@ -26,16 +28,18 @@ bool sendCryptoSize(int sock, uint64_t len){
     if(!plaintext || !ciphertext)
         goto sendCryptoSizeQuit;
 
-
-    r = memcpy(plaintext, &lmsg, sizeof(uint64_t));
+    r = memcpy(plaintext, &count, sizeof(uint64_t));
+    if(!r)
+        goto sendCryptoSizeQuit;
+    r = memcpy(plaintext + sizeof(uint64_t), &lmsg, sizeof(uint64_t));
     if(!r)
         goto sendCryptoSizeQuit;
     //compute size's hmac    
-    ret = hmac_SHA256((char*)&lmsg, sizeof(uint64_t), key_hmac, plaintext + sizeof(uint64_t));
+    ret = hmac_SHA256((char*)plaintext, 2*sizeof(uint64_t), key_hmac, plaintext + 2*sizeof(uint64_t));
     if(ret != hmacSize)
         goto sendCryptoSizeQuit;
 
-    plaintext_len = sizeof(uint64_t) + hmacSize;
+    plaintext_len = 2*sizeof(uint64_t) + hmacSize;
     //encrypt the size|hmac(size)
     ciphertext_len = encrypt(plaintext, plaintext_len, key, iv, ciphertext, EVP_aes_256_cbc());
     if(ciphertext_len == -1)
@@ -48,11 +52,13 @@ bool sendCryptoSize(int sock, uint64_t len){
 
     /* send ciphertext */
     ret = send(sock, ciphertext, ciphertext_len, 0);
+    sequenceNumber++;
     if(ret < 0 || ret != ciphertext_len)
         goto sendCryptoSizeQuit;
     free(plaintext);
     free(ciphertext);
     free(iv);
+//    cout << "size sent: "<<sequenceNumber-1 <<"\t"<<len<<"\t"<<ciphertext_len<<"\n";
     return true;
 
 /* error handling */
@@ -64,14 +70,14 @@ sendCryptoSizeQuit:
 }
 
 uint64_t recvCryptoSize(int sock){
-    const unsigned int ciphertext_len = blockSize + hmacSize;
+    const unsigned int ciphertext_len = blockSize + blockSize + hmacSize;
     void* r;
-    uint64_t h_len, len;
+    uint64_t h_len, len, recv_count, recv_seqNum;
     int decryptedtext_len,ret;
     unsigned char* ciphertext = (unsigned char*)malloc(ciphertext_len); 
     unsigned char* hmac = (unsigned char*)malloc(hmacSize); 
     unsigned char* recv_hmac = (unsigned char*)malloc(hmacSize); 
-    unsigned char* decryptedtext = (unsigned char*)malloc(sizeof(uint64_t) + blockSize + hmacSize);
+    unsigned char* decryptedtext = (unsigned char*)malloc(ciphertext_len);
     unsigned char* iv = (unsigned char*)malloc(blockSize);
     if(!ciphertext || !hmac || !recv_hmac || !decryptedtext || !iv)
         goto recvCryptoSizeQuit;
@@ -89,17 +95,21 @@ uint64_t recvCryptoSize(int sock){
     if(decryptedtext_len == -1)
         goto recvCryptoSizeQuit;
     //compute hmac of the plaintext
-    ret = hmac_SHA256((char*)decryptedtext, sizeof(uint64_t), key_hmac, hmac);
+    ret = hmac_SHA256((char*)decryptedtext, 2*sizeof(uint64_t), key_hmac, hmac);
     if(ret != hmacSize)
         goto recvCryptoSizeQuit;
     //retrieve the received hmac
-    r = memcpy(recv_hmac, decryptedtext + sizeof(uint64_t), hmacSize);
+    r = memcpy(recv_hmac, decryptedtext + 2*sizeof(uint64_t), hmacSize);
     if(!r)
         goto recvCryptoSizeQuit;
     //retrieve the message payload (size) and convert to host byte order
-    memcpy(&len, decryptedtext, sizeof(uint64_t));
+    memcpy(&len, decryptedtext + sizeof(uint64_t), sizeof(uint64_t));
     h_len = be64toh(len);       
-
+    memcpy(&recv_count, decryptedtext, sizeof(uint64_t));
+    recv_seqNum = be64toh(recv_count);
+    if(recv_seqNum != sequenceNumber){
+        goto recvCryptoSizeQuit;
+    }
 //memset(hmac, 0, hmacSize);    //to make hmac check fail
     //authenticity verification
     if(compare_hmac_SHA256(hmac, recv_hmac)){
@@ -109,6 +119,10 @@ uint64_t recvCryptoSize(int sock){
         printf("\033[1;31mSIZE IS NOT AUTHENTIC\033[0m\n");
         goto recvCryptoSizeQuit;
     }
+
+//cout << "size: "<<h_len << "\nrecv seq num: " << recv_seqNum << "-->" << sequenceNumber<<"\n";
+    sequenceNumber++;
+
     free(ciphertext);
     free(hmac);
     free(recv_hmac);

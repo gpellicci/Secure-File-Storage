@@ -9,3 +9,8 @@ client: client.cpp
 clean:
 	clear
 	rm server client
+
+remake:
+	make clean
+	clear
+	make
