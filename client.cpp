@@ -131,17 +131,25 @@ respawn:
             /* list operation */
             if(strcmp(opcode.c_str(), "list") == 0 ){                
                 //receive file list as .txt
+                int err;
                 unsigned int ret;
-                ret = recvCryptoFileFrom(client_sock, "list.txt", "clientDir/.list");        
-                if(ret != 0){
+                ret = recvCryptoFileFrom(client_sock, "list.txt", "clientDir/.list", err);        
+                if(ret != 0 && err == 2){
                     cout << "File list:\n";
                     //Remove the final line, which is just a * and cat the rest
                     //allow you to send the file even if the directory is empty
                     system("cat clientDir/.list/list.txt | grep -v \"\\*\"");
                 }
-        
                 //remove the file
-                system("rm clientDir/.list/list.txt");                
+                system("rm clientDir/.list/list.txt");  
+                if(err == 1){
+                    printf("File not found\n");
+                    goto respawn;
+                }
+                if(err == 0){
+                    printf("Error receiving the file\n");
+                    goto close;
+                }              
             }
             /* upload operation */
             else if(strcmp(opcode.c_str(), "up") == 0 ){
@@ -159,7 +167,16 @@ respawn:
                 path = path + fup_name;
 
                 //get the file locally and send it
-                sendCryptoFileTo(client_sock, path.c_str());
+                int err;
+                sendCryptoFileTo(client_sock, path.c_str(), err);
+                if(err == 1){
+                    printf("File not found\n");
+                    goto respawn;
+                }
+                if(err == 0){
+                    printf("Error sending the file\n");
+                    goto close;
+                }   
             }
             /* download operation */
             else if(strcmp(opcode.c_str(), "down") == 0 ){    
@@ -172,8 +189,16 @@ respawn:
                 printf("Filename issued\n\n");           
 
                 //receive the file and put to the path
-                unsigned int file_len;
-                file_len = recvCryptoFileFrom(client_sock, fdw_name.c_str(), "clientDir");
+                int err;
+                recvCryptoFileFrom(client_sock, fdw_name.c_str(), "clientDir", err);
+                if(err == 1){
+                    printf("File not found\n");
+                    goto respawn;
+                }
+                if(err == 0){
+                    printf("Error receiving the file\n");
+                    goto close;
+                }   
             }           
         }
         /* bad command issued */
@@ -185,6 +210,10 @@ respawn:
 
     }
 
+close:
+    close(client_sock);
+    free(key);
+    free(key_hmac);
     return 0;
 }
 

@@ -30,9 +30,9 @@ int main(){
             goto close;
         }
 
+        char* opcode;
         while(active_client){
             /* get opcode */
-            char* opcode;
             int len = recvCryptoString(tcp_client, opcode);
             if(len == -1 || !checkInputString(string(opcode), cmdMaxLen)){
                 opcode = NULL;      //todo, malloc(1) per non far fallire la free() a respawn:
@@ -49,12 +49,19 @@ int main(){
                 system("echo '*' >> serverDir/.tmp/list.txt");
                 
                 //send the file containing the list to the client
-                unsigned int ret = sendCryptoFileTo(tcp_client, "serverDir/.tmp/list.txt");
-                
+                int err;
+                uint64_t ret = sendCryptoFileTo(tcp_client, "serverDir/.tmp/list.txt", err);
                 //remove the file
                 system("rm serverDir/.tmp/list.txt");
-                if(ret == 0)
+
+                if(err == 1){
+                    cout << "File not found\n";
+                    goto respawn;
+                }
+                if(err == 0){
                     cout << "Error sending the file.\n";            
+                    goto close;
+                }
             }
             else if(strcmp(opcode, "up") == 0 ){            
                 //receive the name of the file 
@@ -70,7 +77,16 @@ int main(){
                 free(fup_name);
 
                 //receive the file and put to the path
-                recvCryptoFileFrom(tcp_client, filename.c_str(), "serverDir");
+                int err;
+                recvCryptoFileFrom(tcp_client, filename.c_str(), "serverDir", err);
+                if(err == 1){
+                    cout << "File not found\n";
+                    goto respawn;
+                }
+                if(err == 0){
+                    cout << "Error receiving the file.\n";            
+                    goto close;
+                }
             }
             else if(strcmp(opcode, "down") == 0 ){            
                 //receive the file name
@@ -86,7 +102,16 @@ int main(){
                 /* free the string */
                 free(fdw_name);
                 //send the file to the client
-                sendCryptoFileTo(tcp_client, path.c_str());
+                int err;
+                sendCryptoFileTo(tcp_client, path.c_str(), err);
+                if(err == 1){
+                    cout << "File not found\n";
+                    goto respawn;
+                }
+                if(err == 0){
+                    cout << "Error sending the file.\n";            
+                    goto close;
+                }
             }
             else if(strcmp(opcode, "exit") == 0 || strcmp(opcode, "quit") == 0 ){  
                 active_client = false;
@@ -99,6 +124,7 @@ int main(){
         }
         //operation over, close socket
     close:
+        free(opcode);
         memset(key, 0, 32);
         memset(key_hmac, 0, 32);
         close(tcp_client);

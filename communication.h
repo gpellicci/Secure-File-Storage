@@ -9,8 +9,6 @@ const int hmacSize = EVP_MD_size(EVP_sha256());
 const unsigned int key_hmac_size = 32;
 
 
-//unsigned char *key = (unsigned char *)"01234567012345670123456701234567";
-//unsigned char *key_hmac = (unsigned char*)"012345678901234567890123456789123";
 unsigned char *key = (unsigned char*)malloc(EVP_CIPHER_key_length(EVP_aes_256_cbc()));
 unsigned char *key_hmac = (unsigned char*)malloc(EVP_CIPHER_key_length(EVP_aes_256_cbc()));
 
@@ -19,7 +17,7 @@ bool sendCryptoSize(int sock, uint64_t len){
     void* r;
     int plaintext_len, ciphertext_len, ret;
     unsigned char* plaintext = (unsigned char*)malloc(sizeof(uint64_t) + hmacSize);
-    unsigned char* ciphertext = (unsigned char*)malloc(blockSize + hmacSize); 
+    unsigned char* ciphertext = (unsigned char*)malloc(blockSize + hmacSize ); 
     unsigned char* iv = NULL;
     //generate the IV at random
     if(!keyGen(iv, blockSize)) 
@@ -52,7 +50,6 @@ bool sendCryptoSize(int sock, uint64_t len){
     ret = send(sock, ciphertext, ciphertext_len, 0);
     if(ret < 0 || ret != ciphertext_len)
         goto sendCryptoSizeQuit;
-  
     free(plaintext);
     free(ciphertext);
     free(iv);
@@ -80,7 +77,7 @@ uint64_t recvCryptoSize(int sock){
         goto recvCryptoSizeQuit;
 
     // receive IV 
-    ret = recv(sock, iv, blockSize, MSG_WAITALL);    
+    ret = recv(sock, iv, blockSize, MSG_WAITALL);  
     if(ret < 0 || ret != blockSize)   //error || not all bytes received
         goto recvCryptoSizeQuit;
     // receive the ciphertext
@@ -112,7 +109,6 @@ uint64_t recvCryptoSize(int sock){
         printf("\033[1;31mSIZE IS NOT AUTHENTIC\033[0m\n");
         goto recvCryptoSizeQuit;
     }
-
     free(ciphertext);
     free(hmac);
     free(recv_hmac);
@@ -302,7 +298,7 @@ recvCryptoStringQuit_2:
 
 
 
-uint64_t sendCryptoFileTo(int sock, const char* fs_name){    
+uint64_t sendCryptoFileTo(int sock, const char* fs_name, int &err){    
     FILE *fs = NULL;
     void* r;
     int ret;
@@ -312,6 +308,7 @@ uint64_t sendCryptoFileTo(int sock, const char* fs_name){
     uint64_t len;
     if(getFileSize(path, len) == false){
         sendCryptoSize(sock, len);
+        err = 1;
         return 0;
     }
     
@@ -437,6 +434,7 @@ uint64_t sendCryptoFileTo(int sock, const char* fs_name){
         //printHex(hmac, hmacSize);
         
         // return file length if ok 
+        err = 2;
         return len;  
     }
 
@@ -451,12 +449,13 @@ sendCryptoFileToQuit_1:
     free(iv);
     HMAC_CTX_free(mdctx);
     EVP_CIPHER_CTX_free(ctx);
+    err = 0;
     return 0;
 }
 
 
 //recv file with known length
-uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name){    
+uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name, int &err){    
     FILE *fr = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
     int tmp_len, ret;
@@ -472,6 +471,7 @@ uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name)
     uint64_t size = recvCryptoSize(sock);
     if(size == 0){
         cout << "ERROR: File not found.\n";        
+        err = 1;
         return 0;
     }
 
@@ -618,9 +618,8 @@ uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name)
         int ret = fclose(fr);
         if(ret != 0){
             perror("Could not close the file.\n");
-            return 0;
         }
-
+        err = 2;
         return size; 
     }
 
@@ -637,6 +636,7 @@ recvCryptoFileFromQuit_1:
     EVP_CIPHER_CTX_free(ctx); 
     system((string("rm ") + tmp_path).c_str());
     handleErrors();
+    err = 0;
     return 0;
 }
 
