@@ -144,10 +144,11 @@ recvCryptoSizeQuit:
 
 int sendCryptoString(int sock, const char* buf){
     unsigned int buf_len = strlen(buf);
-    unsigned char* ciphertext = (unsigned char *) malloc(buf_len + 1 + blockSize + hmacSize);
-    unsigned char* plaintext = (unsigned char*)malloc(buf_len + 1 + hmacSize);
+    unsigned char* ciphertext = (unsigned char *) malloc(buf_len + 1 + blockSize + hmacSize + sizeof(uint64_t));
+    unsigned char* plaintext = (unsigned char*)malloc(buf_len + 1 + hmacSize + sizeof(uint64_t));
     unsigned char* iv = NULL;
     unsigned int plaintext_len, decryptedtext_len, ciphertext_len;
+    uint64_t count = htobe64(sequenceNumber + 1);
     int ret;
     //generate the IV at random
     if(!keyGen(iv, blockSize)) 
@@ -156,11 +157,13 @@ int sendCryptoString(int sock, const char* buf){
         goto sendCryptoStringQuit;
 
     // copy the buffer into plaintext
-    strncpy((char*)plaintext, buf, buf_len);
-    plaintext_len = buf_len + hmacSize;
+    strncpy((char*)(plaintext+sizeof(uint64_t)), buf, buf_len); //copy buf
+    memcpy(plaintext, &count, sizeof(uint64_t));                //copy seq num
+    
+    plaintext_len = sizeof(uint64_t) + buf_len + hmacSize;
 
     // compute hmac of the string (except null terminator) 
-    ret = hmac_SHA256((char*)plaintext, buf_len, key_hmac, plaintext+buf_len);
+    ret = hmac_SHA256((char*)plaintext, buf_len + sizeof(uint64_t), key_hmac, plaintext+buf_len + sizeof(uint64_t));
     if(ret != hmacSize)
         goto sendCryptoStringQuit;
 
@@ -191,6 +194,7 @@ int sendCryptoString(int sock, const char* buf){
 
     // send encrypted string  
     ret = send(sock, ciphertext, ciphertext_len, 0);
+    sequenceNumber++;
     if(ret < 0 || ret != ciphertext_len)
         goto sendCryptoStringQuit;
     
@@ -215,6 +219,7 @@ int recvCryptoString(int sock, char*& buf){
     unsigned char *ciphertext, *decryptedtext, *hmac, *recv_hmac;
     unsigned char* iv = NULL;
     uint64_t ciphertext_len;
+    uint64_t recv_count, recv_seqNum;
     int ret, decryptedtext_len;
     void* r;
 
@@ -268,15 +273,15 @@ int recvCryptoString(int sock, char*& buf){
         goto recvCryptoStringQuit_1;
 
     // Resize and add a NULL terminator. We are expecting printable text
-    decryptedtext_len = decryptedtext_len - hmacSize;
-    decryptedtext[decryptedtext_len] = '\0';
+    
+    decryptedtext[decryptedtext_len-hmacSize] = '\0';
 
-    /*
+/*    
     cout << "STRING'S hmac     : ";
     printHex(hmac, hmacSize);
     cout << "STRING'S recv_hmac: ";
     printHex(recv_hmac, hmacSize);
-    */
+*/  
 
     /* verify hmac */
     if(compare_hmac_SHA256(hmac, recv_hmac)){
@@ -288,9 +293,23 @@ int recvCryptoString(int sock, char*& buf){
     }
 
     //printf("\033[1;33m[%lu]Decrypted String: \033[31;47m%s\033[0m\n", strlen((char*)decryptedtext), (char*)decryptedtext);
-    buf = (char*)decryptedtext;
+    buf = (char*)malloc(decryptedtext_len - (hmacSize + sizeof(uint64_t)) + 1);
+    if(!buf){
+        goto recvCryptoStringQuit_1;
+    }
+    memcpy(buf, decryptedtext+sizeof(uint64_t), decryptedtext_len - sizeof(uint64_t) - hmacSize);
+    memcpy(&recv_count, decryptedtext, sizeof(uint64_t));
+    buf[decryptedtext_len - hmacSize - sizeof(uint64_t)] = '\0';
+    printf("%s\n", buf);
+    recv_seqNum = be64toh(recv_count);
+    if(recv_seqNum != sequenceNumber){
+        free(buf);
+        goto recvCryptoStringQuit_1;
+    }
+    sequenceNumber++;
 
     // no error ending 
+    free(decryptedtext);
     free(ciphertext);
     free(hmac);
     free(recv_hmac);
