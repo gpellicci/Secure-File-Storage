@@ -277,50 +277,26 @@ fail1:
 		memset(key, 0, 32);
 		memset(key_hmac, 0, 32);
 	}
-	int i=0;
-	printf("free time!\n");
 	free(Ya_Yb);
-	printf("free %d\n", i++);
 	free(M2_plain);
-	printf("free %d\n", i++);
 	free(encrKey);
-	printf("free %d\n", i++);
 	free(authKey);
-	printf("free %d\n", i++);
 	free(keyHash);
-	printf("free %d\n", i++);
 	free(sharedKey);
-	printf("free %d\n", i++);	//5
 	free(Ya);
-	printf("free %d\n", i++);
 	free(Yb);
-	printf("free %d\n", i++);
 	free(tmpstr);
-	printf("free %d\n", i++);
 	free(certB_buf);
-	printf("free %d\n", i++);
 	free(M3_encrypted);
-	printf("free %d\n", i++);	//10
 	free(M3_signature);
-	printf("free %d\n", i++);
 	free(encr_count);
-	printf("free %d\n", i++);
 	X509_free(ca_cert);
-	printf("free %d\n", i++);	//13
 	X509_free(certB);
-	printf("free %d\n", i++);
 	X509_CRL_free(crl);
-	printf("free %d\n", i++);	//15
 	X509_STORE_free(store);
-	printf("free %d\n", i++);
 	DH_free(mySession);
-	printf("free %d\n", i++);	//17
-	printf("free %d\n", i++);
 	EVP_PKEY_free(peer_pub_key);
-	printf("free %d\n", i++);
 	EVP_PKEY_free(privkey);
-	printf("free %d\n", i++);	//20
-	printf("(free end)\n" );
 	return retValue;
 }
 
@@ -578,51 +554,27 @@ bool stsResponse(int sock){
 	retValue = true;
 
 fail2:
-printf("begin free\n");
-int i=0;
 	free(sharedKey);
-	printf("free %d\n", i++);
 	free(encrKey);
-	printf("free %d\n", i++);
 	free(authKey); 
-	printf("free %d\n", i++);
 	free(Ya_Yb);
-	printf("free %d\n", i++);
 	free(M2_encrypted);	
-	printf("free %d\n", i++);
 	free(M3_plain);
-	printf("free %d\n", i++);
 	free(Ya);
-	printf("free %d\n", i++);
 	free(Yb);
-	printf("free %d\n", i++);		//7
 	free(certA_buf);
-	printf("free %d\n", i++);
 	free(M3);
-	printf("free %d\n", i++);
 	free(M2_signature);
-	printf("free %d\n", i++);
 	free(tmpstr);
-	printf("free %d\n", i++);
 	free(encr_count);
-	printf("free %d\n", i++);
 	EVP_PKEY_free(peer_pub_key);
-	printf("free %d\n", i++);
 	EVP_PKEY_free(privkey);
-	printf("free %d\n", i++);
 	X509_free(ca_cert);
-	printf("free %d\n", i++);
 	X509_free(certA);
-	printf("free %d\n", i++);
 	X509_CRL_free(crl);
-	printf("free %d\n", i++);
 	X509_STORE_free(store);
-	printf("free %d\n", i++);
 	BN_free(ya);
-	printf("free %d\n", i++);
 	DH_free(mySession);
-	printf("free %d\n", i++);
-	printf("(free end)\n");
 	return retValue;	
 }
 
