@@ -56,17 +56,3 @@ bool verifyCertificate(X509_STORE* store, X509* cert){
 
 	return true;
 }
-
-void printSubjectName(X509* cert){
-	X509_NAME* subject_name = X509_get_subject_name(cert);
-	char* tmpstr = X509_NAME_oneline(subject_name, NULL, 0);
-	printf("Subject: %s\n", tmpstr);
-	free(subject_name);
-}
-
-void printIssuerName(X509* cert){
-	X509_NAME* issuer_name = X509_get_issuer_name(cert);
-	char* tmpstr = X509_NAME_oneline(issuer_name, NULL, 0);
-	printf("Issuer: %s\n", tmpstr);
-	free(issuer_name);
-}

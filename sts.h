@@ -141,8 +141,9 @@ bool stsInitiator(int sock){
 	certB_size = ret;
 	certB = d2i_X509(NULL, (const unsigned char**)&certB_buf, certB_size);
 	if(!certB){
-    goto fail1;
+    	goto fail1;
 	}
+	certB_buf -= certB_size;
 	//printf("\treceived certB\n");
 
 //check if Yb was authentic
@@ -170,7 +171,7 @@ bool stsInitiator(int sock){
 
 //ask client to confirm server identity
 	printf("Server identity:\n");
-	printSubjectName(certB);
+	printf("Subject: %s\n", tmpstr);
 	if(!confirmIdentity()){ //add input for identity confirmation by the user
     	goto fail1;
 	}
@@ -229,7 +230,9 @@ bool stsInitiator(int sock){
 
 	//send certA
 	path = string("clientDir/.certificate/cert.pem");
-	sendCertificate(sock, path.c_str());
+	if(!sendCertificate(sock, path.c_str())){
+		goto fail1;
+	}
 	//printf("\tsent certA\n");
 
 
@@ -274,36 +277,50 @@ fail1:
 		memset(key, 0, 32);
 		memset(key_hmac, 0, 32);
 	}
-	printf("free time\n");
+	int i=0;
+	printf("free time!\n");
 	free(Ya_Yb);
+	printf("free %d\n", i++);
 	free(M2_plain);
-	printf("free time1\n");
+	printf("free %d\n", i++);
 	free(encrKey);
+	printf("free %d\n", i++);
 	free(authKey);
-	printf("free time2\n");
+	printf("free %d\n", i++);
 	free(keyHash);
+	printf("free %d\n", i++);
 	free(sharedKey);
-	printf("free time3\n");
+	printf("free %d\n", i++);	//5
 	free(Ya);
+	printf("free %d\n", i++);
 	free(Yb);
-	printf("free time4\n");
+	printf("free %d\n", i++);
 	free(tmpstr);
-	free(certB_buf- certB_size);
+	printf("free %d\n", i++);
+	free(certB_buf);
+	printf("free %d\n", i++);
 	free(M3_encrypted);
-	printf("free time5\n");
+	printf("free %d\n", i++);	//10
 	free(M3_signature);
+	printf("free %d\n", i++);
 	free(encr_count);
-	printf("free time6\n");
+	printf("free %d\n", i++);
 	X509_free(ca_cert);
-	printf("free time7\n");
+	printf("free %d\n", i++);	//13
 	X509_free(certB);
-	printf("free time8\n");
+	printf("free %d\n", i++);
 	X509_CRL_free(crl);
+	printf("free %d\n", i++);	//15
 	X509_STORE_free(store);
+	printf("free %d\n", i++);
 	DH_free(mySession);
-	BN_free((BIGNUM*)pubk);
+	printf("free %d\n", i++);	//17
+	printf("free %d\n", i++);
 	EVP_PKEY_free(peer_pub_key);
+	printf("free %d\n", i++);
 	EVP_PKEY_free(privkey);
+	printf("free %d\n", i++);	//20
+	printf("(free end)\n" );
 	return retValue;
 }
 
@@ -397,7 +414,7 @@ bool stsResponse(int sock){
 	free(keyHash);
 
 //send M2: Yb, {<Ya,Yb>}, certB
-	//printf("sending M2....\n");
+	printf("sending M2....\n");
 	//send Yb
 	Yb = (unsigned char*)malloc(BN_num_bytes(pubk));
 	if(!Yb){
@@ -412,7 +429,7 @@ bool stsResponse(int sock){
 	if(!ret){
 		goto fail2;
 	}
-	//printf("\tsent Yb\n");
+	printf("\tsent Yb\n");
 	//send {<Ya,Yb>}
 	Ya_Yb_size = Ya_size + Yb_size;
 	Ya_Yb = (unsigned char*)malloc(Ya_Yb_size);
@@ -449,19 +466,21 @@ bool stsResponse(int sock){
 	if(!ret){
 		goto fail2;
 	}
-	//printf("\tsent M2\n");
+	printf("\tsent M2\n");
 
 	//send certB
-	sendCertificate(sock, path.c_str());
-	//printf("\tsent certB\n");
+	if(!sendCertificate(sock, path.c_str())){
+		goto fail2;
+	}
+	printf("\tsent certB\n");
 
 //delete b
 	DH_free(mySession);
 	mySession = NULL;
-	//printf("deleted b\n");
+	printf("deleted b\n");
 	
 //recv M3: {<Ya,Yb>}, certA
-	//printf("receiving M3...\n");
+	printf("receiving M3...\n");
 	//recv {<Ya,Yb>}
 	ret = recvBuf(sock, M3);
 	if(!ret){
@@ -489,6 +508,7 @@ bool stsResponse(int sock){
 	if(!certA){
 		goto fail2;
 	}
+	certA_buf -= certA_size;
 	//printf("\treceived certA\n");
 
 	//verify certificate
@@ -558,28 +578,51 @@ bool stsResponse(int sock){
 	retValue = true;
 
 fail2:
+printf("begin free\n");
+int i=0;
 	free(sharedKey);
+	printf("free %d\n", i++);
 	free(encrKey);
+	printf("free %d\n", i++);
 	free(authKey); 
+	printf("free %d\n", i++);
 	free(Ya_Yb);
+	printf("free %d\n", i++);
 	free(M2_encrypted);	
+	printf("free %d\n", i++);
 	free(M3_plain);
+	printf("free %d\n", i++);
 	free(Ya);
+	printf("free %d\n", i++);
 	free(Yb);
-	free(certA_buf - certA_size);
+	printf("free %d\n", i++);		//7
+	free(certA_buf);
+	printf("free %d\n", i++);
 	free(M3);
+	printf("free %d\n", i++);
 	free(M2_signature);
+	printf("free %d\n", i++);
 	free(tmpstr);
+	printf("free %d\n", i++);
 	free(encr_count);
+	printf("free %d\n", i++);
 	EVP_PKEY_free(peer_pub_key);
+	printf("free %d\n", i++);
 	EVP_PKEY_free(privkey);
+	printf("free %d\n", i++);
 	X509_free(ca_cert);
+	printf("free %d\n", i++);
 	X509_free(certA);
+	printf("free %d\n", i++);
 	X509_CRL_free(crl);
+	printf("free %d\n", i++);
 	X509_STORE_free(store);
+	printf("free %d\n", i++);
 	BN_free(ya);
+	printf("free %d\n", i++);
 	DH_free(mySession);
-
+	printf("free %d\n", i++);
+	printf("(free end)\n");
 	return retValue;	
 }
 

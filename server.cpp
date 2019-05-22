@@ -23,14 +23,13 @@ int main(){
             }
         printf("Accepted connection from %s:%d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
         bool active_client = true;
-        
+        char* opcode = NULL;        
         //KEY EXCHANGE Station-to-Station
         bool sts = stsResponse(tcp_client);
         if(!sts){
             goto close;
         }
 
-        char* opcode;
         while(active_client){
             /* get opcode */
             int len = recvCryptoString(tcp_client, opcode);
@@ -113,14 +112,11 @@ int main(){
                     goto close;
                 }
             }
-            else if(strcmp(opcode, "exit") == 0 || strcmp(opcode, "quit") == 0 ){  
-                active_client = false;
-            }
 
     respawn:
             /* free the command buffer */
             free(opcode);
-
+            opcode = NULL;
         }
         //operation over, close socket
     close:

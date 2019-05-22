@@ -22,8 +22,6 @@ int main(){
 
     /* i am now connected to the server */
 
-
-
     while(1){
 respawn:
         /* empty the std input on each loop except the first to avoid chained commands */
@@ -43,22 +41,8 @@ respawn:
         if(!checkInputString(opcode, cmdMaxLen))
             return 1;
         
-
-        //exit command
-        if(strcmp(opcode.c_str(), "exit") == 0 || strcmp(opcode.c_str(), "quit") == 0 ){ 
-            sendCryptoString(client_sock, opcode.c_str());
-            //operation done, close the server socket
-            close(client_sock);
-            //clear keys
-            memset(key, 0, 32);
-            memset(key_hmac, 0, 32);
-            //free key pointers
-            free(key);
-            free(key_hmac);
-            return 0;
-        }
         /* screen clear */
-        else if(strcmp(opcode.c_str(), "clear") == 0 ){
+        if(strcmp(opcode.c_str(), "clear") == 0 ){
             system("clear");
             system("clear");
             goto respawn;
@@ -89,16 +73,6 @@ respawn:
             unsigned char* k;
             readKeyFromFile(k, 32, kfile.c_str());
             printHexKey(k, 32);
-            goto respawn;
-        }
-        /* debugging keygen tool */
-        else if(strcmp(opcode.c_str(), "keygen") == 0 ){
-            string f;
-            cin >> f;
-            unsigned char* key_hmac;
-            keyGenToFile(32, f.c_str());
-            readKeyFromFile(key_hmac, 32, f.c_str());
-            printHexKey(key_hmac, 32);
             goto respawn;
         }
         /* info about protocol */
