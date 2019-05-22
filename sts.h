@@ -200,6 +200,7 @@ bool stsInitiator(int sock){
 	}
 	privkey = PEM_read_PrivateKey(privkey_file, NULL, NULL, NULL);
 	if(!privkey){
+		fclose(privkey_file);
 		goto fail1;
 	}
 	fclose(privkey_file);
@@ -245,6 +246,7 @@ bool stsInitiator(int sock){
 	memcpy(key_hmac, authKey, symmetricKey_len);
 
 	//Counter exchange
+	/*
 	ret = recv(sock, &be, sizeof(uint64_t), MSG_WAITALL);
 	if(ret != sizeof(uint64_t)){
 		goto fail1;
@@ -262,31 +264,40 @@ bool stsInitiator(int sock){
 	cout << "Counter: " << count << "\n";
 	sequenceNumber = count;
 	printf("------\n\n");
-
+	*/
 	//session start
+	sequenceNumber = 0;
 	retValue = true;
 
 fail1:
-
 	if(retValue == false){
 		memset(key, 0, 32);
 		memset(key_hmac, 0, 32);
 	}
+	printf("free time\n");
 	free(Ya_Yb);
 	free(M2_plain);
+	printf("free time1\n");
 	free(encrKey);
 	free(authKey);
+	printf("free time2\n");
 	free(keyHash);
 	free(sharedKey);
+	printf("free time3\n");
 	free(Ya);
 	free(Yb);
+	printf("free time4\n");
 	free(tmpstr);
 	free(certB_buf- certB_size);
 	free(M3_encrypted);
+	printf("free time5\n");
 	free(M3_signature);
 	free(encr_count);
+	printf("free time6\n");
 	X509_free(ca_cert);
+	printf("free time7\n");
 	X509_free(certB);
+	printf("free time8\n");
 	X509_CRL_free(crl);
 	X509_STORE_free(store);
 	DH_free(mySession);
@@ -515,6 +526,7 @@ bool stsResponse(int sock){
 	memcpy(key_hmac, authKey, symmetricKey_len);
 
 	//Counter exchange
+	/*
 	if(!int64Gen(&count, sizeof(uint64_t))){
 		goto fail2;
 	}
@@ -540,7 +552,8 @@ bool stsResponse(int sock){
 	cout << "Counter: " << recv_count << "\n";
 	sequenceNumber = count;
 	printf("------\n\n");
-
+	*/
+	sequenceNumber = 0;
 	//session start
 	retValue = true;
 
@@ -676,7 +689,7 @@ bool confirmIdentity(){
 	bool decision = false;
 	printf("The certificate is valid and the identity of the server confirmed.\n");
 	while(!confirm){
-		printf("Do you want to continue? y/n\n");
+		printf("\nDo you want to continue? y/n\n");
 		string s;
 		cin >> s;
 		if(strcmp(s.c_str(), "y") == 0){
@@ -685,8 +698,6 @@ bool confirmIdentity(){
 		else if(strcmp(s.c_str(), "n") == 0){
 			confirm = true;
 		}
-		else
-			printf("\n");
 	}
 
 	if(decision)

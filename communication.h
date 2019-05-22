@@ -3,7 +3,7 @@
 
 using namespace std;
 
-const unsigned int LENGTH = 512;
+const unsigned int LENGTH = 520;
 const int blockSize = EVP_CIPHER_block_size(EVP_aes_256_cbc());
 const int hmacSize = EVP_MD_size(EVP_sha256());
 const unsigned int key_hmac_size = 32;
@@ -300,7 +300,6 @@ int recvCryptoString(int sock, char*& buf){
     memcpy(buf, decryptedtext+sizeof(uint64_t), decryptedtext_len - sizeof(uint64_t) - hmacSize);
     memcpy(&recv_count, decryptedtext, sizeof(uint64_t));
     buf[decryptedtext_len - hmacSize - sizeof(uint64_t)] = '\0';
-    printf("%s\n", buf);
     recv_seqNum = be64toh(recv_count);
     if(recv_seqNum != sequenceNumber){
         free(buf);
@@ -335,6 +334,7 @@ uint64_t sendCryptoFileTo(int sock, const char* fs_name, int &err){
     FILE *fs = NULL;
     void* r;
     int ret;
+    uint64_t count;
     string path = fs_name;
 
     // Compute file size 
@@ -363,8 +363,8 @@ uint64_t sendCryptoFileTo(int sock, const char* fs_name, int &err){
     int tmp_len;
     unsigned char* iv = NULL;
     /* malloc all buffers */
-    unsigned char* sdbuf = (unsigned char*)malloc(LENGTH + hmacSize); /* blockSize + hmacSize */
-    unsigned char* ciphertext = (unsigned char*)malloc(LENGTH + blockSize + hmacSize); 
+    unsigned char* sdbuf = (unsigned char*)malloc(sizeof(uint64_t) + LENGTH + hmacSize); /* blockSize + hmacSize */
+    unsigned char* ciphertext = (unsigned char*)malloc(sizeof(uint64_t) + LENGTH + blockSize + hmacSize); 
     unsigned char* hmac = (unsigned char*)malloc(hmacSize);
     if(!sdbuf || !ciphertext || !hmac)
         goto sendCryptoFileToQuit_1;
@@ -406,11 +406,13 @@ uint64_t sendCryptoFileTo(int sock, const char* fs_name, int &err){
         int blockCount = 0;        
         unsigned int hmac_len;
         //read fragment of file
-        while((fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs)) > 0){
-            //cout << "Block #"<< blockCount << "\tsize: " << fs_block_sz << "\n";
+        while((fs_block_sz = fread(sdbuf+sizeof(uint64_t), sizeof(char), LENGTH, fs)) > 0){
+            
+            count = htobe64(sequenceNumber);
+            memcpy(sdbuf, &count, sizeof(uint64_t));
 
             // for every fragment update the digest of the plain fragment 
-            if(1 != HMAC_Update(mdctx, sdbuf, fs_block_sz))
+            if(1 != HMAC_Update(mdctx, sdbuf, fs_block_sz+sizeof(uint64_t)))
                 goto sendCryptoFileToQuit_1;
 
             // last fragment, finalize HMAC 
@@ -418,14 +420,14 @@ uint64_t sendCryptoFileTo(int sock, const char* fs_name, int &err){
                 if(1 != HMAC_Final(mdctx, hmac, &hmac_len))
                     goto sendCryptoFileToQuit_1;
                 // concat hmac to the plain last fragment 
-                r = memcpy(sdbuf + fs_block_sz, hmac, hmacSize);
-                if((sdbuf+fs_block_sz) != r)
+                r = memcpy(sdbuf + sizeof(uint64_t) + fs_block_sz, hmac, hmacSize);
+                if((sdbuf+fs_block_sz+sizeof(uint64_t)) != r)
                     goto sendCryptoFileToQuit_1;
                 fs_block_sz += hmacSize;
             }
 
             // encrypt every fragment 
-            if(1 != EVP_EncryptUpdate(ctx, ciphertext, &tmp_len, (unsigned char*)sdbuf, fs_block_sz))
+            if(1 != EVP_EncryptUpdate(ctx, ciphertext, &tmp_len, (unsigned char*)sdbuf, fs_block_sz+sizeof(uint64_t) ))
                 goto sendCryptoFileToQuit_1;
             ciphertext_len = tmp_len;   
          
@@ -438,12 +440,12 @@ uint64_t sendCryptoFileTo(int sock, const char* fs_name, int &err){
 
 //printf("[%uBytes]ciphertext is:\n", ciphertext_len);
 //BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
-
+            //cout << "Block #"<< blockCount << "\tsize: " << fs_block_sz<<"+("<<sizeof(uint64_t)<<")="<<fs_block_sz+sizeof(uint64_t) << "-->" << ciphertext_len << "\n";
             // send the encrypted file fragment 
             ret = send(sock, ciphertext, ciphertext_len, 0);
+            sequenceNumber++;
             if(ret < 0 || ret != ciphertext_len)
                 goto sendCryptoFileToQuit_1;
-
             blockCount++;
             memset(sdbuf, 0, LENGTH);
         }
@@ -492,6 +494,7 @@ uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name,
     FILE *fr = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
     int tmp_len, ret;
+    uint64_t recv_count, recv_seqNum;
     HMAC_CTX* mdctx = NULL;
 
     // path strings to handle hmac verification 
@@ -507,23 +510,25 @@ uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name,
         err = 1;
         return 0;
     }
-
-    // size is the plainfile size 
-    unsigned int remaining = size;
-
-    // remaining represent the amount of ciphertext that i still have to receive 
-    // padding block + hmac 
-    remaining = remaining + blockSize + hmacSize;    
+    //printf("Plain size: %lu\n", size);
+    unsigned int nFrags = size / LENGTH;
     if((size % LENGTH) != 0)
-        remaining = remaining - (size % blockSize);
-    
-    // number of fragments to receive 
-    unsigned int nFrags = remaining / LENGTH;
-    if((remaining % LENGTH) != 0)
         nFrags++;
+    //printf("Expected fragments: %u\n", nFrags);
+    // size is the plainfile size 
 
-    char* recvbuf = (char*)malloc(LENGTH + blockSize + hmacSize); 
-    unsigned char* plaintext = (unsigned char*)malloc(LENGTH + blockSize + hmacSize);
+    // remaining represent the amount of ciphertext that i still have to receive
+    unsigned int remaining = size + nFrags*sizeof(uint64_t);
+    // add reserved space for the hmac
+    remaining += hmacSize;
+    // padding block 
+    remaining += blockSize - (remaining % blockSize);
+    
+    //remaining = remaining + hmacSize + blockSize - (size % blockSize);
+    //printf("Expected ciphertext len: %u\n", remaining);
+
+    char* recvbuf = (char*)malloc(sizeof(uint64_t) + LENGTH + blockSize + hmacSize); 
+    unsigned char* plaintext = (unsigned char*)malloc(sizeof(uint64_t) + LENGTH + blockSize + hmacSize);
     unsigned char* recv_hmac = (unsigned char*)malloc(hmacSize);
     unsigned char* hmac = (unsigned char*)malloc(hmacSize); 
     unsigned char* iv = (unsigned char*)malloc(blockSize);       
@@ -559,23 +564,23 @@ uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name,
         unsigned int blockCount = 0;
         int fr_block_sz = 0; 
         int plaintext_len;
-        
         while(remaining > 0){            
             int write_sz, recv_len;
 
-            // full fragment 512 byte 
-            if(remaining >= LENGTH)
-                recv_len = LENGTH;
+            if(blockCount == 0 && nFrags != 1 && remaining > LENGTH + sizeof(uint64_t))
+            	recv_len = LENGTH + blockSize + sizeof(uint64_t);
+            // full fragment byte 
+            else if(blockCount < nFrags-1)
+                recv_len = LENGTH + sizeof(uint64_t);
             // not full fragment -> last one 
             else   //last block has different size in general, considering also possible padding            
                 recv_len = remaining;
+
 
             // recv the fragment ciphertext 
             fr_block_sz = recv(sock, recvbuf, recv_len, MSG_WAITALL);
             if(fr_block_sz == -1 || fr_block_sz != recv_len)
                 goto recvCryptoFileFromQuit_1;
-
-            //cout << "Block #"<< blockCount <<"\tremaining "<<remaining - fr_block_sz <<"\tsize: " << fr_block_sz << "/" << LENGTH << " Bytes\n";   
 
             // decrypt the fragment 
             if(1 != EVP_DecryptUpdate(ctx, plaintext, &tmp_len, (unsigned char*)recvbuf, fr_block_sz))
@@ -592,6 +597,13 @@ uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name,
                 if(recv_hmac != r)
                     goto recvCryptoFileFromQuit_1;
             }
+            memcpy(&recv_count, plaintext, sizeof(uint64_t));
+            recv_seqNum = be64toh(recv_count);
+            if(recv_seqNum != sequenceNumber){
+            	goto recvCryptoFileFromQuit_1;
+            }
+
+            //cout << "Block #"<< blockCount <<"\tremaining "<<remaining <<"\trecv: " << fr_block_sz << " Bytes\tSeq: " << recv_seqNum << "\n";   
 
 //printf("[%uBytes]ciphertext is:\n", fr_block_sz);
 //BIO_dump_fp (stdout, (const char *)recvbuf, fr_block_sz);
@@ -601,12 +613,13 @@ uint64_t recvCryptoFileFrom(int sock, const char* fr_name, const char* dir_name,
                 goto recvCryptoFileFromQuit_1;
 
             // write to file the just decrypted fragment
-            write_sz = fwrite(plaintext, sizeof(char), plaintext_len, fr);                
-            if(write_sz != plaintext_len)
+            write_sz = fwrite(plaintext+sizeof(uint64_t), sizeof(char), plaintext_len- sizeof(uint64_t), fr);                
+            if(write_sz != plaintext_len-sizeof(uint64_t))
                 goto recvCryptoFileFromQuit_1;
 
             remaining -= fr_block_sz;
             blockCount++;
+            sequenceNumber++;
         }
 
         // finalize hmac 
