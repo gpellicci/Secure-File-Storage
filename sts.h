@@ -248,26 +248,6 @@ bool stsInitiator(int sock){
 	memcpy(key, encrKey, symmetricKey_len);
 	memcpy(key_hmac, authKey, symmetricKey_len);
 
-	//Counter exchange
-	/*
-	ret = recv(sock, &be, sizeof(uint64_t), MSG_WAITALL);
-	if(ret != sizeof(uint64_t)){
-		goto fail1;
-	}
-	count = be64toh(be); 
-	encr_count = (unsigned char*)malloc(blockSize);
-	ret = encrypt((unsigned char*)&be, sizeof(uint64_t), encrKey, NULL, encr_count, EVP_aes_256_ecb());
-	if(ret != blockSize){
-		goto fail1;
-	}
-	ret = send(sock, encr_count, blockSize, 0);
-	if(ret != blockSize){
-		goto fail1;
-	}
-	cout << "Counter: " << count << "\n";
-	sequenceNumber = count;
-	printf("------\n\n");
-	*/
 	//session start
 	sequenceNumber = 0;
 	retValue = true;
@@ -390,7 +370,7 @@ bool stsResponse(int sock){
 	free(keyHash);
 
 //send M2: Yb, {<Ya,Yb>}, certB
-	printf("sending M2....\n");
+	//("sending M2....\n");
 	//send Yb
 	Yb = (unsigned char*)malloc(BN_num_bytes(pubk));
 	if(!Yb){
@@ -405,7 +385,7 @@ bool stsResponse(int sock){
 	if(!ret){
 		goto fail2;
 	}
-	printf("\tsent Yb\n");
+	//printf("\tsent Yb\n");
 	//send {<Ya,Yb>}
 	Ya_Yb_size = Ya_size + Yb_size;
 	Ya_Yb = (unsigned char*)malloc(Ya_Yb_size);
@@ -442,21 +422,21 @@ bool stsResponse(int sock){
 	if(!ret){
 		goto fail2;
 	}
-	printf("\tsent M2\n");
+	//printf("\tsent M2\n");
 
 	//send certB
 	if(!sendCertificate(sock, path.c_str())){
 		goto fail2;
 	}
-	printf("\tsent certB\n");
+	//printf("\tsent certB\n");
 
 //delete b
 	DH_free(mySession);
 	mySession = NULL;
-	printf("deleted b\n");
+	//printf("deleted b\n");
 	
 //recv M3: {<Ya,Yb>}, certA
-	printf("receiving M3...\n");
+	//printf("receiving M3...\n");
 	//recv {<Ya,Yb>}
 	ret = recvBuf(sock, M3);
 	if(!ret){
@@ -521,34 +501,7 @@ bool stsResponse(int sock){
 	memcpy(key, encrKey, symmetricKey_len);
 	memcpy(key_hmac, authKey, symmetricKey_len);
 
-	//Counter exchange
-	/*
-	if(!int64Gen(&count, sizeof(uint64_t))){
-		goto fail2;
-	}
-	be = htobe64(count);   //convert length to network byte order (big endian)
-	ret = send(sock, &be, sizeof(uint64_t), 0);
-	if(ret != sizeof(uint64_t)){
-		goto fail2;
-	}
-	encr_count = (unsigned char*)malloc(blockSize);
-	ret = recv(sock, encr_count, blockSize, MSG_WAITALL);
-	if(ret != blockSize){
-		goto fail2;
-	}
-	ret = decrypt(encr_count, blockSize, encrKey, NULL, (unsigned char*)&be, EVP_aes_256_ecb());
-	if(ret != sizeof(uint64_t)){
-		goto fail2;
-	}
-	recv_count = be64toh(be);
-	if(recv_count != count){
-		printf("wrong count\n");
-		goto fail2;
-	}
-	cout << "Counter: " << recv_count << "\n";
-	sequenceNumber = count;
-	printf("------\n\n");
-	*/
+
 	sequenceNumber = 0;
 	//session start
 	retValue = true;
