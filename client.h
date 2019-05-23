@@ -54,5 +54,4 @@ void commands_available(){
     cout << "'down filename' to download file filename from the server\n";  
     cout << "'up filename' to upload file filename on the server\n";  
     cout << "'info' to have some information about the protocol\n";  
-    cout << "'quit' or 'exit' to terminate the program\n";  
 }

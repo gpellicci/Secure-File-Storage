@@ -238,13 +238,14 @@ bool stsInitiator(int sock){
 
 
 	printf("Session start.\n");
-	printf("------\n");
+	printf("------\n\n");
+	/*
 	printf("Encryption key: \n");
 	printHex(encrKey, symmetricKey_len);
 	printf("Authentication key: \n");
 	printHex(authKey, symmetricKey_len);
 	printf("------\n");
-
+	*/
 	memcpy(key, encrKey, symmetricKey_len);
 	memcpy(key_hmac, authKey, symmetricKey_len);
 
@@ -492,12 +493,13 @@ bool stsResponse(int sock){
 	//printf("M3: Ya is authentic\n");
 	printf("Session start.\n");
 	printf("------\n");
+	/*
 	printf("Encryption key: \n");
 	printHex(encrKey, symmetricKey_len);
 	printf("Authentication key: \n");
 	printHex(authKey, symmetricKey_len);
 	printf("------\n");
-
+	*/
 	memcpy(key, encrKey, symmetricKey_len);
 	memcpy(key_hmac, authKey, symmetricKey_len);
 
